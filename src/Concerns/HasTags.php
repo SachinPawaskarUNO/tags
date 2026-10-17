@@ -6,6 +6,7 @@ namespace spawaskar\Tags\Concerns;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use InvalidArgumentException;
 use spawaskar\Tags\Models\Tag;
 
 // Add tagging to any Eloquent model.
@@ -27,7 +28,7 @@ trait HasTags
     /** @return MorphToMany<Tag, $this> */
     public function tags(): MorphToMany
     {
-        return $this->morphToMany(Tag::class, 'taggable');
+        return $this->morphToMany(Tag::class, 'taggable')->withPivot('color');
     }
 
     /**
@@ -65,6 +66,31 @@ trait HasTags
     public function syncTags(string|array $names): static
     {
         $this->tags()->sync($this->findOrCreateTagIds((array) $names));
+
+        return $this;
+    }
+
+    /**
+     * Set the colors of this model's tags by name, e.g. ['pottery' => 'red'].
+     * A null color resets a tag to the default. Names the model doesn't have are skipped.
+     *
+     * @param  array<string, string|null>  $colors
+     */
+    public function setTagColors(array $colors): static
+    {
+        foreach ($colors as $color) {
+            if ($color !== null && ! in_array($color, Tag::COLORS, true)) {
+                throw new InvalidArgumentException("[{$color}] is not a tag color.");
+            }
+        }
+
+        foreach ($colors as $name => $color) {
+            $tag = $this->tags()->where('name', Tag::normalizeName((string) $name))->first();
+
+            if ($tag !== null) {
+                $this->tags()->updateExistingPivot($tag->id, ['color' => $color]);
+            }
+        }
 
         return $this;
     }

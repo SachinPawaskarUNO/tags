@@ -13,7 +13,6 @@ return new class extends Migration
         Schema::create('tags', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
-            $table->string('color')->nullable();
             $table->text('description')->nullable();
             $table->timestamps();
         });
@@ -21,6 +20,7 @@ return new class extends Migration
         Schema::create('taggables', function (Blueprint $table) {
             $table->foreignId('tag_id')->constrained()->cascadeOnDelete();
             $table->morphs('taggable');
+            $table->string('color')->nullable();
             $table->unique(['tag_id', 'taggable_id', 'taggable_type']);
         });
     }

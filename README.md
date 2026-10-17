@@ -90,6 +90,14 @@ Post::withAnyTags(['tag1', 'tag3'])->get();
 Post::withAllTags(['tag1', 'tag3'])->get();
 ```
 
+Give a model's tags colors from a fixed palette (`gray`, `red`, `orange`, `yellow`, `green`, `blue`, `purple`). Tags without a color show as gray, and `null` resets a tag to gray:
+
+```php
+$post->setTagColors(['tag1' => 'red', 'tag3' => null]);
+```
+
+Colors belong to the model's tags, not the tags themselves, so `tag1` can be red on one post and blue on another. Colors outside the palette throw an `InvalidArgumentException`; validate input with `Rule::in(Tag::COLORS)`. A tag's color on a model is in `$tag->pivot->color`.
+
 Find tags that aren't attached to any model:
 
 ```php
@@ -97,14 +105,6 @@ use spawaskar\Tags\Facades\TagManager;
 
 TagManager::unused();
 ```
-
-Give tags a color from a fixed palette (`gray`, `red`, `orange`, `yellow`, `green`, `blue`, `purple`). Tags without a color show as gray, and `null` resets a tag to gray:
-
-```php
-TagManager::setColors(['tag1' => 'red', 'tag2' => null]);
-```
-
-A color belongs to the tag, so it's the same everywhere the tag is used. Colors outside the palette throw an `InvalidArgumentException`; validate input with `Rule::in(Tag::COLORS)`.
 
 ### Blade
 
@@ -129,7 +129,7 @@ They're styled with Tailwind using shadcn-style theme colors (`bg-muted`, `borde
 
 #### Showing tags
 
-`TagList` shows tags as chips. Pass tag names, or tag objects with a `name` and an optional `color`:
+`TagList` shows tags as chips, in their colors. Pass tag names, or tag objects such as `post.tags`:
 
 ```vue
 <TagList :tags="post.tags" />
@@ -180,7 +180,7 @@ Users can click a tag in `TagInput` to pick its color. Pass the colors by tag na
 ```js
 const form = useForm({
     tags: props.post.tags.map((tag) => tag.name),
-    colors: Object.fromEntries(props.post.tags.map((tag) => [tag.name, tag.color])),
+    colors: Object.fromEntries(props.post.tags.map((tag) => [tag.name, tag.pivot.color])),
 });
 ```
 
@@ -192,7 +192,6 @@ Then save them after the tags:
 
 ```php
 use Illuminate\Validation\Rule;
-use spawaskar\Tags\Facades\TagManager;
 use spawaskar\Tags\Models\Tag;
 
 $request->validate([
@@ -201,7 +200,7 @@ $request->validate([
 ]);
 
 $post->syncTags($request->input('tags', []));
-TagManager::setColors($request->input('colors', []));
+$post->setTagColors($request->input('colors', []));
 ```
 
 In a regular form submit, set `colors-name` to render hidden inputs for the colors, like `name` does for the tags.

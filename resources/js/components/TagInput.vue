@@ -19,7 +19,7 @@ const props = defineProps({
 
 const tags = defineModel({ type: Array, default: () => [] });
 
-// Colors by tag name, e.g. { pottery: 'red' }. Save them with TagManager::setColors().
+// Colors by tag name, e.g. { pottery: 'red' }. Save them with $model->setTagColors().
 const colors = defineModel('colors', { type: Object, default: () => ({}) });
 
 const input = ref('');
