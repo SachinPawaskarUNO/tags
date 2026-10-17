@@ -106,11 +106,16 @@ trait HasTags
     }
 
     /**
+     * Turn tag names into tag IDs, creating any tags that don't exist.
+     * Blank names are skipped.
+     *
      * @param  array<int, string>  $names
      * @return array<int, int>
      */
     protected function findOrCreateTagIds(array $names): array
     {
+        $names = array_filter(array_map(Tag::normalizeName(...), $names), fn (string $name) => $name !== '');
+
         return array_map(fn (string $name): int => Tag::findOrCreateByName($name)->id, $names);
     }
 }

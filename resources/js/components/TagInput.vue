@@ -5,7 +5,7 @@ import { computed, ref } from 'vue';
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps({
-    // Tag names to offer as one-click suggestions, e.g. Tags::popular()->pluck('name').
+    // Tag names to offer as one-click suggestions. These suggestions are chosen in the app. 
     suggestions: { type: Array, default: () => [] },
     // When set, renders hidden inputs so the tags submit with a regular form.
     name: { type: String, default: null },

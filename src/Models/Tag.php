@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Carbon;
+use InvalidArgumentException;
 
 /**
  * @property int $id
@@ -15,7 +16,6 @@ use Illuminate\Support\Carbon;
  * @property string|null $description
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * @property-read int|null $usage_count Only set on results from Tags::popular().
  */
 class Tag extends Model
 {
@@ -23,6 +23,18 @@ class Tag extends Model
         'name',
         'description',
     ];
+
+    /**
+     * Refuse to save a tag with a blank name.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Tag $tag): void {
+            if ($tag->name === '') {
+                throw new InvalidArgumentException('A tag name cannot be blank.');
+            }
+        });
+    }
 
     /**
      * Get all models of the given class that have this tag.

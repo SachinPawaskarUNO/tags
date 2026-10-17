@@ -90,7 +90,7 @@
                 "spawaskar\\Tags\\TagsServiceProvider"
             ],
             "aliases": {
-                "Tags": "spawaskar\\Tags\\Facades\\Tags"
+                "TagManager": "spawaskar\\Tags\\Facades\\TagManager"
             }
         }
     },

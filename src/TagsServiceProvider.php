@@ -16,7 +16,7 @@ class TagsServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/tags.php', 'tags');
 
-        $this->app->singleton(Tags::class);
+        $this->app->singleton(TagManager::class);
     }
 
     /**

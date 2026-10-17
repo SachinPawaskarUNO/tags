@@ -90,13 +90,12 @@ Post::withAnyTags(['laravel', 'vue'])->get();
 Post::withAllTags(['laravel', 'vue'])->get();
 ```
 
-Get tags across every model:
+Find tags that aren't attached to any model:
 
 ```php
-use spawaskar\Tags\Facades\Tags;
+use spawaskar\Tags\Facades\TagManager;
 
-Tags::popular(10);   // most-used tags, each with a usage_count
-Tags::unused();      // tags not attached to anything
+TagManager::unused();
 ```
 
 ### Blade
@@ -130,12 +129,14 @@ They're styled with Tailwind using shadcn-style theme colors (`bg-muted`, `borde
 
 #### Editing tags
 
-`TagInput` lets users type a tag and press Enter or comma to add it, click × to remove it, or click one of the suggested tags. Pass the tags with `v-model` and the suggestions with `suggestions`, for example the most popular tag names:
+`TagInput` lets users type a tag and press Enter or comma to add it, click × to remove it, or click one of the suggested tags. Pass the tags with `v-model` and a list of tag names with `suggestions`:
 
 ```php
+use spawaskar\Tags\Models\Tag;
+
 return view('posts.edit', [
     'post' => $post,
-    'suggestions' => Tags::popular(20)->pluck('name'),
+    'suggestions' => Tag::orderBy('name')->pluck('name'),
 ]);
 ```
 
@@ -143,7 +144,7 @@ return view('posts.edit', [
 <TagInput v-model="form.tags" :suggestions="suggestions" />
 ```
 
-`Tags::popular()` counts tags across your whole app. If some users shouldn't see tags other users created, pass your own list of names instead.
+If some users shouldn't see tags other users created, only pass the names they're allowed to see.
 
 Attributes like `id` and `aria-label` are passed to the text input, so a label can point at it. Tags are limited to 50 characters by default. Set `max-length` to match your validation:
 
