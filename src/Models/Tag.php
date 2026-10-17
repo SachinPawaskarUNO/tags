@@ -13,25 +13,36 @@ use InvalidArgumentException;
 /**
  * @property int $id
  * @property string $name
+ * @property string|null $color
  * @property string|null $description
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
 class Tag extends Model
 {
+    /**
+     * The colors a tag can have. Keep in sync with resources/js/tagColors.js.
+     */
+    public const COLORS = ['gray', 'red', 'orange', 'yellow', 'green', 'blue', 'purple'];
+
     protected $fillable = [
         'name',
+        'color',
         'description',
     ];
 
     /**
-     * Refuse to save a tag with a blank name.
+     * Refuse to save a tag with a blank name or a color outside the palette.
      */
     protected static function booted(): void
     {
         static::saving(function (Tag $tag): void {
             if ($tag->name === '') {
                 throw new InvalidArgumentException('A tag name cannot be blank.');
+            }
+
+            if ($tag->color !== null && ! in_array($tag->color, self::COLORS, true)) {
+                throw new InvalidArgumentException("[{$tag->color}] is not a tag color.");
             }
         });
     }

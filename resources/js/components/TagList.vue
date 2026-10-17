@@ -1,22 +1,23 @@
 <script setup>
 import { computed } from 'vue';
+import { chipClass } from '../tagColors.js';
 
 const props = defineProps({
-    // Tag names, or tag objects with a name, e.g. post.tags.
+    // Tag names, or tag objects with a name and optional color, e.g. post.tags.
     tags: { type: Array, default: () => [] },
 });
 
-const names = computed(() => props.tags.map((tag) => (typeof tag === 'string' ? tag : tag.name)));
+const items = computed(() => props.tags.map((tag) => (typeof tag === 'string' ? { name: tag, color: null } : tag)));
 </script>
 
 <template>
-    <ul v-if="names.length > 0" class="flex flex-wrap gap-2">
+    <ul v-if="items.length > 0" class="flex flex-wrap gap-2">
         <li
-            v-for="name in names"
-            :key="name"
-            class="rounded-full bg-muted px-3 py-1 text-sm text-muted-foreground"
+            v-for="tag in items"
+            :key="tag.name"
+            :class="['rounded-full px-3 py-1 text-sm', chipClass(tag.color)]"
         >
-            {{ name }}
+            {{ tag.name }}
         </li>
     </ul>
 </template>

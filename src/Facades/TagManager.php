@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * @method static \Illuminate\Database\Eloquent\Collection<int, \spawaskar\Tags\Models\Tag> unused()
+ * @method static void setColors(array<string, string|null> $colors)
  *
  * @see \spawaskar\Tags\TagManager
  */

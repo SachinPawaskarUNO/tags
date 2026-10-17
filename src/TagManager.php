@@ -25,6 +25,19 @@ class TagManager
     }
 
     /**
+     * Set tag colors by name, e.g. ['pottery' => 'red']. A null color resets
+     * the tag to the default. Names that aren't tags yet are skipped.
+     *
+     * @param  array<string, string|null>  $colors
+     */
+    public function setColors(array $colors): void
+    {
+        foreach ($colors as $name => $color) {
+            Tag::where('name', Tag::normalizeName((string) $name))->first()?->update(['color' => $color]);
+        }
+    }
+
+    /**
      * Limit a subquery to the pivot rows for the tag in the outer query.
      */
     protected function usages(Builder $query): Builder

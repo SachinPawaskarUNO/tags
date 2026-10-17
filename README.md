@@ -81,13 +81,13 @@ class Post extends Model
 Then tag it by name. Tags that don't exist yet are created, and names are trimmed and lowercased:
 
 ```php
-$post->attachTags(['laravel', 'php']);
-$post->detachTags('php');
-$post->syncTags(['laravel', 'vue']);   // exactly these tags
-$post->hasTag('Laravel');              // true
+$post->attachTags(['tag1', 'tag2']);
+$post->detachTags('tag2');
+$post->syncTags(['tag1', 'tag3']);   // exactly these tags
+$post->hasTag('Tag1');               // true
 
-Post::withAnyTags(['laravel', 'vue'])->get();
-Post::withAllTags(['laravel', 'vue'])->get();
+Post::withAnyTags(['tag1', 'tag3'])->get();
+Post::withAllTags(['tag1', 'tag3'])->get();
 ```
 
 Find tags that aren't attached to any model:
@@ -97,6 +97,14 @@ use spawaskar\Tags\Facades\TagManager;
 
 TagManager::unused();
 ```
+
+Give tags a color from a fixed palette (`gray`, `red`, `orange`, `yellow`, `green`, `blue`, `purple`). Tags without a color show as gray, and `null` resets a tag to gray:
+
+```php
+TagManager::setColors(['tag1' => 'red', 'tag2' => null]);
+```
+
+A color belongs to the tag, so it's the same everywhere the tag is used. Colors outside the palette throw an `InvalidArgumentException`; validate input with `Rule::in(Tag::COLORS)`.
 
 ### Blade
 
@@ -121,7 +129,7 @@ They're styled with Tailwind using shadcn-style theme colors (`bg-muted`, `borde
 
 #### Showing tags
 
-`TagList` shows tags as chips. Pass tag names or tag objects with a `name`:
+`TagList` shows tags as chips. Pass tag names, or tag objects with a `name` and an optional `color`:
 
 ```vue
 <TagList :tags="post.tags" />
@@ -164,6 +172,42 @@ The component doesn't save anything itself. Save the tags in your own controller
 ```php
 $post->syncTags($request->input('tags', []));
 ```
+
+#### Tag colors
+
+Users can click a tag in `TagInput` to pick its color. Pass the colors by tag name with `v-model:colors`:
+
+```js
+const form = useForm({
+    tags: props.post.tags.map((tag) => tag.name),
+    colors: Object.fromEntries(props.post.tags.map((tag) => [tag.name, tag.color])),
+});
+```
+
+```vue
+<TagInput v-model="form.tags" v-model:colors="form.colors" />
+```
+
+Then save them after the tags:
+
+```php
+use Illuminate\Validation\Rule;
+use spawaskar\Tags\Facades\TagManager;
+use spawaskar\Tags\Models\Tag;
+
+$request->validate([
+    'colors' => 'array',
+    'colors.*' => ['nullable', Rule::in(Tag::COLORS)],
+]);
+
+$post->syncTags($request->input('tags', []));
+TagManager::setColors($request->input('colors', []));
+```
+
+In a regular form submit, set `colors-name` to render hidden inputs for the colors, like `name` does for the tags.
+
+The palette's Tailwind classes are in the published `tagColors.js`. You can restyle each color there, but keep the color names, since the server only accepts the names in `Tag::COLORS`.
+
 
 ## Changelog
 
