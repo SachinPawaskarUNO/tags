@@ -43,6 +43,10 @@ class TagsServiceProvider extends ServiceProvider
         ], ['tags', 'tags-views']);
 
         $this->publishes([
+            __DIR__.'/../resources/js' => resource_path('js/vendor/tags'),
+        ], ['tags', 'tags-vue']);
+
+        $this->publishes([
             __DIR__.'/../lang' => $this->app->langPath('vendor/tags'),
         ], ['tags', 'tags-lang']);
 
