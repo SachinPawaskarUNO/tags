@@ -120,6 +120,27 @@ class TagManager
     }
 
     /**
+     * Every tag's color, icon, and description, by name. Pass it to the advanced TagInput's
+     * details, so existing tags show their color and icon as soon as they're picked.
+     *
+     * @return array<string, array{color: string|null, icon: string|null, description: string|null}>
+     */
+    public function details(): array
+    {
+        $details = [];
+
+        foreach (static::tagModel()::orderBy('name')->get() as $tag) {
+            $details[$tag->name] = [
+                'color' => $tag->color,
+                'icon' => $tag->icon,
+                'description' => $tag->description,
+            ];
+        }
+
+        return $details;
+    }
+
+    /**
      * Every tag's name, grouped by the model it was created for. Tags created without a
      * model are listed last, under "Other".
      *

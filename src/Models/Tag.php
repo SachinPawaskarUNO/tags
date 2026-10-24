@@ -36,6 +36,23 @@ class Tag extends Model
     public const array ICONS = [
         'file',
         'folder',
+        'star',
+        'shield-alert',
+        'circle-alert',
+        'bone',
+        'shovel',
+        'car',
+        'map-pin',
+        'eye',
+        'fingerprint-pattern',
+        'flag',
+        'microscope',
+        'circle',
+        'circle-dashed',
+        'circle-dashed-check',
+        'triangle',
+        'square',
+        'heart',
         // Add supported icons here, and their components to tagIcons.js.
     ];
 

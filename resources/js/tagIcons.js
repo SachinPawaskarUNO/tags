@@ -1,4 +1,24 @@
-import { File, Folder } from '@lucide/vue';
+import {
+    Bone,
+    Car,
+    Circle,
+    CircleAlert,
+    CircleDashed,
+    CircleDashedCheck,
+    Eye,
+    File,
+    FingerprintPattern,
+    Flag,
+    Folder,
+    Heart,
+    MapPin,
+    Microscope,
+    ShieldAlert,
+    Shovel,
+    Square,
+    Star,
+    Triangle,
+} from '@lucide/vue';
 
 // Every icon the package supports, by name. Keep in sync with Tag::ICONS.
 // Which ones users can pick is set by config('tags.icons'), passed to TagInput's available-icons.
@@ -6,6 +26,23 @@ import { File, Folder } from '@lucide/vue';
 export const tagIcons = {
     file: File,
     folder: Folder,
+    star: Star,
+    'shield-alert': ShieldAlert,
+    'circle-alert': CircleAlert,
+    bone: Bone,
+    shovel: Shovel,
+    car: Car,
+    'map-pin': MapPin,
+    eye: Eye,
+    'fingerprint-pattern': FingerprintPattern,
+    flag: Flag,
+    microscope: Microscope,
+    circle: Circle,
+    'circle-dashed': CircleDashed,
+    'circle-dashed-check': CircleDashedCheck,
+    triangle: Triangle,
+    square: Square,
+    heart: Heart,
     // Add supported icons here, and their names to Tag::ICONS.
 };
 

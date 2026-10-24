@@ -1,5 +1,5 @@
 <script>
-// Gives each TagInput's dropdown its own id, for aria-controls.
+// Gives each TagInput's fields their own ids, for <label for="...">.
 let nextId = 0;
 </script>
 
@@ -10,7 +10,7 @@ import { pickableIcons, tagIcons } from '../../tagIcons.js';
 import TagColorPicker from './TagColorPicker.vue';
 import TagCreateDialog from './TagCreateDialog.vue';
 
-// TagInput for advanced mode: existing tags are picked from a dropdown grouped by model, and
+// TagInput for advanced mode: existing tags are listed under the input and filtered by typing, and
 // new tags are made with the New tag popup, which sets their description, color, icon, and
 // model. Clicking a tag changes its color, icon, and description. Needs the installs in the
 // README's advanced mode section.
@@ -23,8 +23,9 @@ const props = defineProps({
     // A list grouped by model, like { Post: ['pottery'] }, shows a heading for each.
     // Typing only adds tags from this list.
     suggestions: { type: [Array, Object], default: () => [] },
-    // Every tag's name, from TagManager::names(). Names from other models aren't offered for creating.
-    existing: { type: Array, default: () => [] },
+    // Every tag's saved color, icon, and description by name, from TagManager::details(). Picked
+    // tags show them right away, and names from other models aren't offered for creating.
+    details: { type: Object, default: () => ({}) },
     // The models to choose from in the New tag popup, from TagManager::models().
     models: { type: Array, default: () => [] },
     // The page's model type, e.g. 'App\\Models\\Post'. The New tag popup starts on it.
@@ -68,12 +69,7 @@ const unknownName = ref('');
 // A typed name that's a tag for another model, so it isn't offered for creating.
 const otherModelName = ref('');
 
-const listboxId = `tag-suggestions-${nextId++}`;
-
-const open = ref(false);
-
-// The index of the dropdown option picked with the arrow keys, or -1 for none.
-const highlighted = ref(-1);
+const id = `tag-input-${nextId++}`;
 
 // Match Tag::normalizeName() on the server.
 const normalize = (name) => name.trim().toLowerCase();
@@ -84,20 +80,26 @@ const grouped = computed(() => (Array.isArray(props.suggestions) ? { '': props.s
 const known = computed(() => new Set([...Object.values(grouped.value).flat().map(normalize), ...tags.value]));
 
 // Every tag name that exists, including other models' tags.
-const allNames = computed(() => new Set([...known.value, ...props.existing.map(normalize)]));
+const allNames = computed(() => new Set([...known.value, ...Object.keys(props.details).map(normalize)]));
 
-// The dropdown's groups of matching suggestions, without tags already added. A plain list
-// is one group with no heading. Each option gets an index for the arrow keys.
+// A tag's color, icon, or description: the one set here, or else the saved one from details.
+// Saved ones are only shown, not added to the v-models, so saving doesn't rewrite them.
+const detail = (changed, tag, key) => (tag in changed ? changed[tag] : (props.details[tag]?.[key] ?? null));
+const colorOf = (tag) => detail(colors.value, tag, 'color');
+const iconOf = (tag) => detail(icons.value, tag, 'icon');
+const descriptionOf = (tag) => detail(descriptions.value, tag, 'description');
+
+// The existing tags listed under the input: the suggestions that match what's typed, without
+// tags already added. A plain list is one group with no heading.
 const groups = computed(() => {
     const search = normalize(input.value);
-    let index = 0;
 
     return Object.entries(grouped.value)
         .map(([label, names]) => ({
             label,
-            options: [...new Set(names.map(normalize))]
-                .filter((suggestion) => !tags.value.includes(suggestion) && suggestion.includes(search))
-                .map((suggestion) => ({ name: suggestion, index: index++ })),
+            options: [...new Set(names.map(normalize))].filter(
+                (suggestion) => !tags.value.includes(suggestion) && suggestion.includes(search),
+            ),
         }))
         .filter((group) => group.options.length > 0);
 });
@@ -107,7 +109,6 @@ const options = computed(() => groups.value.flatMap((group) => group.options));
 const editableIcons = computed(() => pickableIcons(props.availableIcons));
 
 watch(input, () => {
-    highlighted.value = -1;
     unknownName.value = '';
     otherModelName.value = '';
 });
@@ -136,7 +137,6 @@ function addTag(name) {
     }
 
     input.value = '';
-    highlighted.value = -1;
 }
 
 function openCreate(name = '') {
@@ -200,30 +200,13 @@ function setDescription(tag, description) {
     descriptions.value = { ...descriptions.value, [tag]: description };
 }
 
-function moveHighlight(step) {
-    if (options.value.length === 0) {
-        return;
-    }
-
-    open.value = true;
-    highlighted.value = (highlighted.value + step + options.value.length) % options.value.length;
-}
-
-// Enter or comma adds the highlighted suggestion, or the typed tag if it exists. The arrow keys
-// move through the dropdown and Escape closes it. Backspace in an empty input removes the last tag.
+// Enter or comma adds the typed tag, or the only tag left in the list. Backspace in an empty
+// input removes the last tag.
 function onKeydown(event) {
     if (event.key === 'Enter' || event.key === ',') {
         event.preventDefault();
-        addTag(open.value && highlighted.value >= 0 ? options.value[highlighted.value].name : input.value);
-    } else if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        moveHighlight(1);
-    } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        moveHighlight(-1);
-    } else if (event.key === 'Escape') {
-        open.value = false;
-        highlighted.value = -1;
+        const typed = normalize(input.value);
+        addTag(!known.value.has(typed) && options.value.length === 1 ? options.value[0] : typed);
     } else if (event.key === 'Backspace' && input.value === '' && tags.value.length > 0) {
         removeTag(tags.value[tags.value.length - 1]);
     }
@@ -240,9 +223,9 @@ function onKeydown(event) {
                     <span
                         v-for="tag in tags"
                         :key="tag"
-                        :class="['inline-flex items-center gap-1 rounded-full text-sm', chipClass(colors[tag])]"
-                        :style="chipStyle(colors[tag])"
-                        :title="descriptions[tag] || undefined"
+                        :class="['inline-flex items-center gap-1 rounded-full text-sm', chipClass(colorOf(tag))]"
+                        :style="chipStyle(colorOf(tag))"
+                        :title="descriptionOf(tag) || undefined"
                     >
                         <button
                             type="button"
@@ -251,7 +234,7 @@ function onKeydown(event) {
                             :aria-expanded="editing === tag"
                             @click="toggleEditing(tag)"
                         >
-                            <component :is="tagIcons[icons[tag]]" v-if="tagIcons[icons[tag]]" class="size-3.5" aria-hidden="true" />
+                            <component :is="tagIcons[iconOf(tag)]" v-if="tagIcons[iconOf(tag)]" class="size-3.5" aria-hidden="true" />
                             {{ tag }}
                         </button>
                         <button
@@ -268,58 +251,13 @@ function onKeydown(event) {
                         v-bind="$attrs"
                         v-model="input"
                         type="text"
-                        role="combobox"
                         autocomplete="off"
-                        aria-autocomplete="list"
-                        :aria-expanded="open && options.length > 0"
-                        :aria-controls="listboxId"
-                        :aria-activedescendant="open && highlighted >= 0 ? `${listboxId}-${highlighted}` : undefined"
+                        :aria-controls="`${id}-existing`"
                         class="min-w-32 flex-1 border-0 bg-transparent p-1 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-0"
                         :placeholder="placeholder"
                         :maxlength="maxLength"
-                        @focus="open = true"
-                        @input="open = true"
-                        @blur="open = false"
                         @keydown="onKeydown"
                     />
-                </div>
-
-                <div
-                    v-if="open && options.length > 0"
-                    :id="listboxId"
-                    role="listbox"
-                    class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-input bg-popover p-1 text-sm text-popover-foreground shadow-md"
-                >
-                    <div
-                        v-for="group in groups"
-                        :key="group.label"
-                        role="group"
-                        :aria-labelledby="group.label ? `${listboxId}-group-${group.label}` : undefined"
-                    >
-                        <div
-                            v-if="group.label"
-                            :id="`${listboxId}-group-${group.label}`"
-                            class="px-2 py-1 text-xs font-medium text-muted-foreground"
-                        >
-                            {{ group.label }}
-                        </div>
-                        <!-- mousedown.prevent keeps focus in the input, so the dropdown stays open. -->
-                        <div
-                            v-for="option in group.options"
-                            :id="`${listboxId}-${option.index}`"
-                            :key="option.name"
-                            role="option"
-                            :aria-selected="highlighted === option.index"
-                            :class="[
-                                'cursor-pointer rounded-sm px-2 py-1.5',
-                                highlighted === option.index ? 'bg-accent text-accent-foreground' : '',
-                            ]"
-                            @mousedown.prevent="addTag(option.name)"
-                            @mouseenter="highlighted = option.index"
-                        >
-                            {{ option.name }}
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -330,6 +268,28 @@ function onKeydown(event) {
             >
                 New tag
             </button>
+        </div>
+
+        <div v-if="options.length > 0" :id="`${id}-existing`" class="max-h-40 space-y-2 overflow-y-auto text-sm">
+            <div v-for="group in groups" :key="group.label" class="flex flex-wrap items-center gap-2">
+                <span class="text-muted-foreground">{{ group.label || 'Existing tags' }}:</span>
+                <button
+                    v-for="option in group.options"
+                    :key="option"
+                    type="button"
+                    :aria-label="`Add ${option}`"
+                    :title="descriptionOf(option) || undefined"
+                    :class="[
+                        'inline-flex items-center gap-1 rounded-full px-3 py-1 hover:opacity-80',
+                        chipClass(colorOf(option)),
+                    ]"
+                    :style="chipStyle(colorOf(option))"
+                    @click="addTag(option)"
+                >
+                    <component :is="tagIcons[iconOf(option)]" v-if="tagIcons[iconOf(option)]" class="size-3.5" aria-hidden="true" />
+                    {{ option }}
+                </button>
+            </div>
         </div>
 
         <p v-if="unknownName" class="text-sm text-muted-foreground">
@@ -348,7 +308,7 @@ function onKeydown(event) {
                 <span class="text-muted-foreground">Color for {{ editing }}:</span>
                 <TagColorPicker
                     :key="editing"
-                    :model-value="colors[editing]"
+                    :model-value="colorOf(editing)"
                     @update:model-value="(color) => setColor(editing, color)"
                 />
             </div>
@@ -357,10 +317,10 @@ function onKeydown(event) {
                 <span class="text-muted-foreground">Icon for {{ editing }}:</span>
                 <button
                     type="button"
-                    :aria-pressed="!icons[editing]"
+                    :aria-pressed="!iconOf(editing)"
                     :class="[
                         'rounded-md border border-input px-2 py-1 hover:bg-accent hover:text-accent-foreground',
-                        !icons[editing] ? 'bg-accent text-accent-foreground' : '',
+                        !iconOf(editing) ? 'bg-accent text-accent-foreground' : '',
                     ]"
                     @click="setIcon(editing, null)"
                 >
@@ -371,10 +331,10 @@ function onKeydown(event) {
                     :key="iconName"
                     type="button"
                     :aria-label="iconName"
-                    :aria-pressed="icons[editing] === iconName"
+                    :aria-pressed="iconOf(editing) === iconName"
                     :class="[
                         'rounded-md border border-input p-1.5 hover:bg-accent hover:text-accent-foreground',
-                        icons[editing] === iconName ? 'bg-accent text-accent-foreground' : '',
+                        iconOf(editing) === iconName ? 'bg-accent text-accent-foreground' : '',
                     ]"
                     @click="setIcon(editing, iconName)"
                 >
@@ -383,10 +343,10 @@ function onKeydown(event) {
             </div>
 
             <div class="space-y-1">
-                <label :for="`${listboxId}-description`" class="text-muted-foreground">Description for {{ editing }}:</label>
+                <label :for="`${id}-description`" class="text-muted-foreground">Description for {{ editing }}:</label>
                 <textarea
-                    :id="`${listboxId}-description`"
-                    :value="descriptions[editing] ?? ''"
+                    :id="`${id}-description`"
+                    :value="descriptionOf(editing) ?? ''"
                     rows="2"
                     :maxlength="maxDescriptionLength"
                     class="w-full rounded-md border border-input bg-transparent px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50"

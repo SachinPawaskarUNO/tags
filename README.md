@@ -152,7 +152,7 @@ return view('posts.edit', [
 <TagInput v-model="form.tags" :suggestions="suggestions" />
 ```
 
-In simple mode, the suggestions are every tag's name, shown as buttons under the input. In advanced mode, they're the tags created for a model, shown in a dropdown; see [Creating tags](#creating-tags).
+In simple mode, the suggestions are every tag's name, shown as buttons under the input. In advanced mode, they're the tags created for a model, listed under the input in their colors and filtered as the user types; see [Creating tags](#creating-tags).
 
 If some users shouldn't see tags other users created, only pass the names they're allowed to see.
 
@@ -212,7 +212,7 @@ The palette's Tailwind classes are in the published `tagColors.js`. You can rest
 
 #### Advanced mode
 
-In advanced mode, import `TagInput` from the `advanced` folder instead of `simple`. It's used the same way, but shows suggestions in a dropdown with a heading for each model, and lets users pick any color with a color picker instead of the palette:
+In advanced mode, import `TagInput` from the `advanced` folder instead of `simple`. It's used the same way, but lists the page's model's tags under the input with their colors and icons, makes new tags with a popup, and lets users pick any color with a color picker instead of the palette:
 
 ```js
 import TagInput from '@/vendor/tags/components/advanced/TagInput.vue';
@@ -223,6 +223,8 @@ The color picker is built on [Reka UI](https://reka-ui.com) and the icons come f
 ```bash
 npm install reka-ui @lucide/vue
 ```
+
+The icons need `@lucide/vue` 1.42.0 or later, which added `circle-dashed-check`. If your app has an older version, update it with `npm install @lucide/vue@latest`.
 
 The picker is written in TypeScript, which the starter kit also supports. Apps in simple mode don't import anything from `advanced`, so they don't need these.
 
@@ -259,13 +261,13 @@ List the models users can choose from in the config. Without any, the popup hide
 'models' => [App\Models\Post::class, App\Models\Video::class],
 ```
 
-Tags are created for a model and shown by model: pass the page's model to `TagManager::suggestions()`, and users only see the tags created for it, plus any tags created without a model. Pass every tag's name too, so a name from another model isn't created again:
+Tags are created for a model and shown by model: pass the page's model to `TagManager::suggestions()`, and users only see the tags created for it, plus any tags created without a model. Pass every tag's details too, from `TagManager::details()`. Existing tags then show their saved color and icon as soon as they're picked, and a name from another model isn't created again:
 
 ```php
 return Inertia::render('Posts/Edit', [
     'post' => $post->load('tags'),
     'suggestions' => TagManager::suggestions(Post::class),
-    'existing' => TagManager::names(),
+    'details' => TagManager::details(),
     'models' => TagManager::models(),
     'model' => $post->getMorphClass(),
     'icons' => TagManager::icons(),
@@ -292,7 +294,7 @@ const form = useForm({
     v-model:descriptions="form.descriptions"
     v-model:model-types="form.modelTypes"
     :suggestions="suggestions"
-    :existing="existing"
+    :details="details"
     :models="models"
     :model="model"
     :available-icons="icons"
@@ -359,11 +361,13 @@ import { tagIcons } from '@/vendor/tags/tagIcons.js';
 <TagList :tags="post.tags" :icons="tagIcons" />
 ```
 
-The icons come from [Lucide](https://lucide.dev/icons). The package supports the icons in `Tag::ICONS`, and the `icons` config option picks which of them users can pick. To enable more, publish the config with `--tag="tags-config"` and add their names:
+The icons come from [Lucide](https://lucide.dev/icons). The package supports these icons (`Tag::ICONS`): `file`, `folder`, `star`, `shield-alert`, `circle-alert`, `bone`, `shovel`, `car`, `map-pin`, `eye`, `fingerprint-pattern`, `flag`, `microscope`, `circle`, `circle-dashed`, `circle-dashed-check`, `triangle`, `square`, and `heart`.
+
+All of them are enabled by default. The `icons` config option picks which ones users can pick, so to offer fewer, publish the config with `--tag="tags-config"` and list only those:
 
 ```php
 // config/tags.php
-'icons' => ['file', 'folder'],
+'icons' => ['star', 'flag', 'map-pin'],
 ```
 
 Names that aren't in `Tag::ICONS` are ignored. To use an icon the package doesn't support, import its component from `@lucide/vue` in the published `tagIcons.js`, and extend the `Tag` model (see the `model` config option) to add its name to `ICONS`.

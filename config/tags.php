@@ -20,7 +20,11 @@ return [
      * The icons users can pick in advanced mode. Available icons: see Tag::ICONS.
      * Icons are provided by Lucide (https://lucide.dev/icons).
      */
-    'icons' => ['file', 'folder'],
+    'icons' => [
+        'file', 'folder', 'star', 'shield-alert', 'circle-alert', 'bone', 'shovel', 'car', 'map-pin',
+        'eye', 'fingerprint-pattern', 'flag', 'microscope', 'circle', 'circle-dashed',
+        'circle-dashed-check', 'triangle', 'square', 'heart',
+    ],
 
     /*
      * The models users can choose from when creating a tag in advanced mode,
