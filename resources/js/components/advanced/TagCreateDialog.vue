@@ -4,13 +4,14 @@ let nextId = 0;
 </script>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
-import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui';
-import { pickableIcons } from '../../tagIcons.js';
+import { ref, watch } from 'vue';
+import { DialogClose, DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui';
 import TagColorPicker from './TagColorPicker.vue';
+import TagIconPicker from './TagIconPicker.vue';
 
 // A popup for creating a tag in advanced mode, with a name, description, color, icon, and model.
-// It doesn't save anything: Create emits the new tag, and TagInput adds it to the form.
+// It doesn't save anything: Create emits the new tag, for TagInput to add to the form or
+// TagManagerPage to save.
 
 const open = defineModel('open', { type: Boolean, default: false });
 
@@ -50,8 +51,6 @@ const blank = () => ({
 const form = ref(blank());
 
 const error = ref('');
-
-const icons = computed(() => pickableIcons(props.availableIcons));
 
 // Start fresh each time the popup opens.
 watch(open, (isOpen) => {
@@ -93,12 +92,10 @@ function submit() {
         <DialogPortal>
             <DialogOverlay class="fixed inset-0 z-50 bg-black/50" />
             <DialogContent
+                :aria-describedby="undefined"
                 class="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-input bg-background p-6 text-foreground shadow-lg"
             >
                 <DialogTitle class="text-lg font-semibold">New tag</DialogTitle>
-                <DialogDescription class="mt-1 text-sm text-muted-foreground">
-                    The tag is saved when you save the form.
-                </DialogDescription>
 
                 <form class="mt-4 space-y-4 text-sm" @submit.prevent="submit">
                     <div class="space-y-1">
@@ -128,33 +125,9 @@ function submit() {
                         <TagColorPicker v-model="form.color" />
                     </div>
 
-                    <div v-if="icons.length > 0" class="flex flex-wrap items-center gap-2">
+                    <div v-if="availableIcons === null || availableIcons.length > 0" class="flex flex-wrap items-center gap-2">
                         <span class="font-medium">Icon</span>
-                        <button
-                            type="button"
-                            :aria-pressed="!form.icon"
-                            :class="[
-                                'rounded-md border border-input px-2 py-1 hover:bg-accent hover:text-accent-foreground',
-                                !form.icon ? 'bg-accent text-accent-foreground' : '',
-                            ]"
-                            @click="form.icon = null"
-                        >
-                            None
-                        </button>
-                        <button
-                            v-for="[iconName, icon] in icons"
-                            :key="iconName"
-                            type="button"
-                            :aria-label="iconName"
-                            :aria-pressed="form.icon === iconName"
-                            :class="[
-                                'rounded-md border border-input p-1.5 hover:bg-accent hover:text-accent-foreground',
-                                form.icon === iconName ? 'bg-accent text-accent-foreground' : '',
-                            ]"
-                            @click="form.icon = iconName"
-                        >
-                            <component :is="icon" class="size-4" aria-hidden="true" />
-                        </button>
+                        <TagIconPicker v-model="form.icon" :available-icons="availableIcons" />
                     </div>
 
                     <div v-if="models.length > 0" class="space-y-1">

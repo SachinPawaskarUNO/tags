@@ -224,3 +224,24 @@ it('lists tags that are not attached to any model', function () {
     // Assert
     expect(TagManager::unused()->pluck('name')->all())->toBe(['never-used', 'tag2']);
 });
+
+it('accepts any Lucide icon name by default in advanced mode', function () {
+    // Arrange
+    useAdvancedMode();
+
+    // Assert
+    expect(TagManager::icons())->toBeNull()
+        ->and(Tag::isValidIcon('grid-2x2'))->toBeTrue()
+        ->and(Tag::isValidIcon('Not an icon'))->toBeFalse();
+});
+
+it('only accepts the icons listed in the config', function () {
+    // Arrange
+    useAdvancedMode();
+    config(['tags.icons' => ['star', 'map-pin']]);
+
+    // Assert
+    expect(TagManager::icons())->toBe(['star', 'map-pin'])
+        ->and(Tag::isValidIcon('star'))->toBeTrue()
+        ->and(Tag::isValidIcon('heart'))->toBeFalse();
+});

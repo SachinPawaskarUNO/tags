@@ -6,8 +6,11 @@ use spawaskar\Tags\Models\Tag;
 return [
 
     /*
-     * 'simple'   – tags with just a name and pre-set color.
-     * 'advanced' – tags with a color picker and icon.
+     * 'simple'   – tags with a name and a color from a preset palette.
+     * 'advanced' – adds any color from a color picker, icons, and descriptions. Tags are created
+     *              for a model with a New tag popup, and each page shows its model's tags.
+     *
+     * Set this before running the migration: advanced mode adds the icon and model_type columns.
      */
     'mode' => 'simple',
 
@@ -17,19 +20,33 @@ return [
     'model' => Tag::class,
 
     /*
-     * The icons users can pick in advanced mode. Available icons: see Tag::ICONS.
-     * Icons are provided by Lucide (https://lucide.dev/icons).
+     * The icons users can pick in advanced mode, from Lucide (https://lucide.dev/icons).
+     * '*' offers every Lucide icon. To offer fewer, list their names, e.g. ['star', 'flag', 'map-pin'].
      */
-    'icons' => [
-        'file', 'folder', 'star', 'shield-alert', 'circle-alert', 'bone', 'shovel', 'car', 'map-pin',
-        'eye', 'fingerprint-pattern', 'flag', 'microscope', 'circle', 'circle-dashed',
-        'circle-dashed-check', 'triangle', 'square', 'heart',
-    ],
+    'icons' => '*',
 
     /*
      * The models users can choose from when creating a tag in advanced mode,
      * e.g. [App\Models\Post::class, App\Models\Video::class].
      */
     'models' => [],
+
+    /*
+     * The tag manager page, for listing, searching, creating, and deleting tags in advanced mode.
+     * It's an Inertia page, so it needs inertiajs/inertia-laravel and the page component from
+     * the README's tag manager section. The routes are only registered when it's enabled.
+     */
+    'manager' => [
+        'enabled' => false,
+
+        // The URL the page is at, e.g. 'admin/tags'.
+        'path' => 'tags',
+
+        // Keep auth (or your own admin middleware), since anyone who can open the page can delete tags.
+        'middleware' => ['web', 'auth'],
+
+        // The Inertia page component to render, e.g. resources/js/pages/tags/Manager.vue.
+        'component' => 'tags/Manager',
+    ],
 
 ];

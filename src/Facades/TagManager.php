@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static array<string, array{color: string|null, icon: string|null, description: string|null}> details()
  * @method static array<string, list<string>> namesByModelType()
  * @method static void setColors(array<string, string|null> $colors)
- * @method static list<string> icons()
+ * @method static list<string>|null icons()
  * @method static void setIcons(array<string, string|null> $icons)
  * @method static void setDescriptions(array<string, string|null> $descriptions)
  * @method static list<array{value: string, label: string}> models()

@@ -152,7 +152,7 @@ return view('posts.edit', [
 <TagInput v-model="form.tags" :suggestions="suggestions" />
 ```
 
-In simple mode, the suggestions are every tag's name, shown as buttons under the input. In advanced mode, they're the tags created for a model, listed under the input in their colors and filtered as the user types; see [Creating tags](#creating-tags).
+In simple mode, the suggestions are every tag's name, shown as buttons under the input. In advanced mode, they're the tags created for a model, shown in their colors in a dropdown under the input and filtered as the user types; see [Creating tags](#creating-tags).
 
 If some users shouldn't see tags other users created, only pass the names they're allowed to see.
 
@@ -212,7 +212,7 @@ The palette's Tailwind classes are in the published `tagColors.js`. You can rest
 
 #### Advanced mode
 
-In advanced mode, import `TagInput` from the `advanced` folder instead of `simple`. It's used the same way, but lists the page's model's tags under the input with their colors and icons, makes new tags with a popup, and lets users pick any color with a color picker instead of the palette:
+In advanced mode, import `TagInput` from the `advanced` folder instead of `simple`. It's used the same way, but shows the page's model's tags in a dropdown under the input with their colors and icons, makes new tags with a popup, and lets users pick any color with a color picker instead of the palette:
 
 ```js
 import TagInput from '@/vendor/tags/components/advanced/TagInput.vue';
@@ -315,7 +315,7 @@ Clicking a tag in `TagInput` also lets users change its description. Description
 
 #### Tag icons
 
-In advanced mode, users can also give each tag an icon. Clicking a tag in the advanced `TagInput` shows the icons under the color picker. Pass the icons users can pick from the controller:
+In advanced mode, users can also give each tag an icon from [Lucide](https://lucide.dev/icons). Clicking a tag in the advanced `TagInput` shows an icon button under the color picker, which opens a popup of every icon with a search. The New tag popup has the same button. Pass the icons users can pick from the controller:
 
 ```php
 return Inertia::render('Posts/Edit', [
@@ -361,16 +361,63 @@ import { tagIcons } from '@/vendor/tags/tagIcons.js';
 <TagList :tags="post.tags" :icons="tagIcons" />
 ```
 
-The icons come from [Lucide](https://lucide.dev/icons). The package supports these icons (`Tag::ICONS`): `file`, `folder`, `star`, `shield-alert`, `circle-alert`, `bone`, `shovel`, `car`, `map-pin`, `eye`, `fingerprint-pattern`, `flag`, `microscope`, `circle`, `circle-dashed`, `circle-dashed-check`, `triangle`, `square`, and `heart`.
-
-All of them are enabled by default. The `icons` config option picks which ones users can pick, so to offer fewer, publish the config with `--tag="tags-config"` and list only those:
+Icons are saved by their Lucide name, like `map-pin`. Every Lucide icon is offered by default (`'icons' => '*'`). They're loaded the first time a page shows an icon, as a separate file, so pages without icons don't download them. To offer fewer, publish the config with `--tag="tags-config"` and list the ones users can pick:
 
 ```php
 // config/tags.php
 'icons' => ['star', 'flag', 'map-pin'],
 ```
 
-Names that aren't in `Tag::ICONS` are ignored. To use an icon the package doesn't support, import its component from `@lucide/vue` in the published `tagIcons.js`, and extend the `Tag` model (see the `model` config option) to add its name to `ICONS`.
+With every icon offered, the server accepts any name in Lucide's format but doesn't check that Lucide has it, so a name it doesn't have shows no icon.
+
+#### Tag manager page
+
+In advanced mode, the package can add a page that lists every tag with its color, icon, description, model, and how many items it's on. Users can search the tags, create new ones with the **New tag** popup, and delete them. Deleting a tag removes it from everything it's on.
+
+The page uses Inertia, so install it if your app doesn't have it yet:11
+```bash
+composer require inertiajs/inertia-laravel
+```
+
+Publish the config with `--tag="tags-config"` and turn the page on:
+
+```php
+// config/tags.php
+'manager' => [
+    'enabled' => true,
+    'path' => 'admin/tags',
+    'middleware' => ['web', 'auth'],
+    'component' => 'tags/Manager',
+],
+```
+
+`path` is the page's URL. Anyone who can open the page can delete tags, so keep `auth` in `middleware`, or use your own admin middleware. The routes are named `tags.manager.index`, `tags.manager.store`, and `tags.manager.destroy`, so you can link to the page with `route('tags.manager.index')`.
+
+`component` is the Inertia page the route renders. Create it in your app, wrapping the published `TagManagerPage` in your own layout:
+
+```vue
+<!-- resources/js/pages/tags/Manager.vue -->
+<script setup>
+import AppLayout from '@/layouts/AppLayout.vue';
+import TagManagerPage from '@/vendor/tags/components/advanced/TagManagerPage.vue';
+
+defineProps(['tags', 'models', 'icons', 'storeUrl', 'maxDescriptionLength']);
+</script>
+
+<template>
+    <AppLayout>
+        <TagManagerPage
+            :tags="tags"
+            :models="models"
+            :icons="icons"
+            :store-url="storeUrl"
+            :max-description-length="maxDescriptionLength"
+        />
+    </AppLayout>
+</template>
+```
+
+The New tag popup offers the models from the `models` config option, like `TagInput`.
 
 
 ## Changelog

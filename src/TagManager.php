@@ -209,11 +209,12 @@ class TagManager
     }
 
     /**
-     * The icons users can pick in advanced mode. Pass it to TagInput's available-icons.
+     * The icons users can pick in advanced mode: null for every Lucide icon, or a list of names.
+     * Pass it to TagInput's available-icons.
      *
-     * @return list<string>
+     * @return list<string>|null
      */
-    public function icons(): array
+    public function icons(): ?array
     {
         return static::tagModel()::icons();
     }

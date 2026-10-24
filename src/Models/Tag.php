@@ -29,32 +29,10 @@ class Tag extends Model
     public const array COLORS = ['gray', 'red', 'orange', 'yellow', 'green', 'blue', 'purple'];
 
     /**
-     * Every icon the package supports in advanced mode, as Lucide icon names (https://lucide.dev/icons).
-     * The tags.icons config option picks which of these are enabled.
-     * Keep in sync with resources/js/tagIcons.js.
+     * What an icon name looks like: a Lucide icon name (https://lucide.dev/icons), e.g. map-pin.
+     * Matches NAME in resources/js/tagIcons.js.
      */
-    public const array ICONS = [
-        'file',
-        'folder',
-        'star',
-        'shield-alert',
-        'circle-alert',
-        'bone',
-        'shovel',
-        'car',
-        'map-pin',
-        'eye',
-        'fingerprint-pattern',
-        'flag',
-        'microscope',
-        'circle',
-        'circle-dashed',
-        'circle-dashed-check',
-        'triangle',
-        'square',
-        'heart',
-        // Add supported icons here, and their components to tagIcons.js.
-    ];
+    public const string ICON_NAME_PATTERN = '/^[a-z0-9]+(-[a-z0-9]+)*$/';
 
     protected $fillable = [
         'name',
@@ -106,25 +84,39 @@ class Tag extends Model
     }
 
     /**
-     * Whether an icon is supported and enabled. Icons are only available in advanced mode.
+     * Whether an icon is enabled: with every Lucide icon enabled, any Lucide-style name, or
+     * else one of the names in the tags.icons config option. Icons are only available in
+     * advanced mode. Names aren't checked against Lucide, so one it doesn't have shows no icon.
      */
     public static function isValidIcon(string $icon): bool
     {
-        return config('tags.mode') === 'advanced' && in_array($icon, static::icons(), true);
+        if (config('tags.mode') !== 'advanced') {
+            return false;
+        }
+
+        $icons = static::icons();
+
+        return $icons === null
+            ? strlen($icon) <= 64 && preg_match(self::ICON_NAME_PATTERN, $icon) === 1
+            : in_array($icon, $icons, true);
     }
 
     /**
-     * The enabled icons: the ones in the tags.icons config option that are also in Tag::ICONS.
-     * Without the option, every supported icon is enabled.
+     * The enabled icons, from the tags.icons config option: null when it's '*', for every
+     * Lucide icon, or else the names it lists.
      *
-     * @return list<string>
+     * @return list<string>|null
      */
-    public static function icons(): array
+    public static function icons(): ?array
     {
-        /** @var list<string> $enabled */
-        $enabled = config('tags.icons', static::ICONS);
+        /** @var '*'|list<string> $enabled */
+        $enabled = config('tags.icons', '*');
 
-        return array_values(array_intersect($enabled, static::ICONS));
+        if ($enabled === '*') {
+            return null;
+        }
+
+        return array_values(array_filter($enabled, fn (string $icon): bool => preg_match(self::ICON_NAME_PATTERN, $icon) === 1));
     }
 
     /**
