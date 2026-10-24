@@ -8,3 +8,9 @@ export const tagIcons = {
     folder: Folder,
     // Add supported icons here, and their names to Tag::ICONS.
 };
+
+// The [name, component] pairs users can pick: the supported icons that are also in `available`
+// (from TagManager::icons()). Without `available`, every supported icon.
+export function pickableIcons(available = null) {
+    return Object.entries(tagIcons).filter(([name]) => available === null || available.includes(name));
+}

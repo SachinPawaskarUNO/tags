@@ -48,13 +48,22 @@ class Tag extends Model
     ];
 
     /**
-     * Refuse to save a tag with a blank name, or a color or icon that isn't valid.
+     * The longest description a tag can have, matching the description column.
+     */
+    public const int MAX_DESCRIPTION_LENGTH = 255;
+
+    /**
+     * Refuse to save a tag with a blank name, a description that's too long, or a color or icon that isn't valid.
      */
     protected static function booted(): void
     {
         static::saving(function (Tag $tag): void {
             if ($tag->name === '') {
                 throw new InvalidArgumentException('A tag name cannot be blank.');
+            }
+
+            if ($tag->description !== null && mb_strlen($tag->description) > self::MAX_DESCRIPTION_LENGTH) {
+                throw new InvalidArgumentException('A tag description cannot be longer than '.self::MAX_DESCRIPTION_LENGTH.' characters.');
             }
 
             if ($tag->color !== null && ! static::isValidColor($tag->color)) {
@@ -131,7 +140,7 @@ class Tag extends Model
      * Whether new tags record their model type: in advanced mode, when the tags table has the
      * model_type column. The column is missing if the tables were created in simple mode.
      */
-    protected static function recordsModelType(): bool
+    public static function recordsModelType(): bool
     {
         return config('tags.mode') === 'advanced'
             && Schema::hasColumn(static::query()->getModel()->getTable(), 'model_type');

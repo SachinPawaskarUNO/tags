@@ -22,4 +22,10 @@ return [
      */
     'icons' => ['file', 'folder'],
 
+    /*
+     * The models users can choose from when creating a tag in advanced mode,
+     * e.g. [App\Models\Post::class, App\Models\Video::class].
+     */
+    'models' => [],
+
 ];

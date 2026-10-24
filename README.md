@@ -152,7 +152,7 @@ return view('posts.edit', [
 <TagInput v-model="form.tags" :suggestions="suggestions" />
 ```
 
-In simple mode, the suggestions are every tag's name, shown as buttons under the input. In advanced mode, they're grouped by the model the tags are on, e.g. `['Post' => ['pottery'], 'Video' => ['tutorial']]`, for the [advanced `TagInput`](#advanced-mode)'s dropdown.
+In simple mode, the suggestions are every tag's name, shown as buttons under the input. In advanced mode, they're the tags created for a model, shown in a dropdown; see [Creating tags](#creating-tags).
 
 If some users shouldn't see tags other users created, only pass the names they're allowed to see.
 
@@ -247,6 +247,69 @@ $request->validate([
     'colors.*' => ['nullable', 'string', fn ($attribute, $value, $fail) => Tag::isValidColor($value) || $fail('Not a tag color.')],
 ]);
 ```
+
+#### Creating tags
+
+In advanced mode, typing in `TagInput` only adds tags that already exist. New tags are made with the **New tag** button, which opens a popup for the tag's name, description, color, icon, and model. If a user types a name that isn't a tag yet, `TagInput` offers to open the popup for it. Nothing is saved until the form is.
+
+List the models users can choose from in the config. Without any, the popup hides the model field, and new tags are labeled with the model they're saved on:
+
+```php
+// config/tags.php
+'models' => [App\Models\Post::class, App\Models\Video::class],
+```
+
+Tags are created for a model and shown by model: pass the page's model to `TagManager::suggestions()`, and users only see the tags created for it, plus any tags created without a model. Pass every tag's name too, so a name from another model isn't created again:
+
+```php
+return Inertia::render('Posts/Edit', [
+    'post' => $post->load('tags'),
+    'suggestions' => TagManager::suggestions(Post::class),
+    'existing' => TagManager::names(),
+    'models' => TagManager::models(),
+    'model' => $post->getMorphClass(),
+    'icons' => TagManager::icons(),
+]);
+```
+
+Without a model, `TagManager::suggestions()` returns every tag, grouped by the model it was created for, with tags that have no model under "Other".
+
+```js
+const form = useForm({
+    tags: props.post.tags.map((tag) => tag.name),
+    colors: Object.fromEntries(props.post.tags.map((tag) => [tag.name, tag.color])),
+    icons: Object.fromEntries(props.post.tags.map((tag) => [tag.name, tag.icon])),
+    descriptions: Object.fromEntries(props.post.tags.map((tag) => [tag.name, tag.description])),
+    modelTypes: {},
+});
+```
+
+```vue
+<TagInput
+    v-model="form.tags"
+    v-model:colors="form.colors"
+    v-model:icons="form.icons"
+    v-model:descriptions="form.descriptions"
+    v-model:model-types="form.modelTypes"
+    :suggestions="suggestions"
+    :existing="existing"
+    :models="models"
+    :model="model"
+    :available-icons="icons"
+/>
+```
+
+Then save the tags first, so new ones exist, and their details after:
+
+```php
+$post->syncTags($request->input('tags', []));
+TagManager::setColors($request->input('colors', []));
+TagManager::setIcons($request->input('icons', []));
+TagManager::setDescriptions($request->input('descriptions', []));
+TagManager::setModelTypes($request->input('modelTypes', []));
+```
+
+Clicking a tag in `TagInput` also lets users change its description. Descriptions can be up to 255 characters (`Tag::MAX_DESCRIPTION_LENGTH`), and a blank description removes it. `setModelTypes()` only accepts models from the config. In a regular form submit, set `descriptions-name` and `model-types-name` to render hidden inputs, like `name` does for the tags.
 
 #### Tag icons
 
