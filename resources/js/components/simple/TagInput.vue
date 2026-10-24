@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { chipClass, tagColors } from '../tagColors.js';
+import { chipClass, tagColors } from '../../tagColors.js';
 
 // Attributes like id and aria-label go on the text input, so <label for="..."> works.
 defineOptions({ inheritAttrs: false });
@@ -13,13 +13,13 @@ const props = defineProps({
     // When set, renders hidden inputs so the colors submit with a regular form.
     colorsName: { type: String, default: null },
     placeholder: { type: String, default: 'Add a tag...' },
-    // Keep in sync with the app's validation, e.g. 'tags.*' => 'max:50'.
-    maxLength: { type: Number, default: 50 },
+    // Keep in sync with the app's validation, e.g. 'tags.*' => 'max:32'.
+    maxLength: { type: Number, default: 32 },
 });
 
 const tags = defineModel({ type: Array, default: () => [] });
 
-// Colors by tag name, e.g. { pottery: 'red' }. Save them with $model->setTagColors().
+// Colors by tag name, e.g. { pottery: 'red' }. Save them with TagManager::setColors().
 const colors = defineModel('colors', { type: Object, default: () => ({}) });
 
 const input = ref('');

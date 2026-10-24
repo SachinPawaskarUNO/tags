@@ -1,18 +1,15 @@
 <script setup>
 import { computed } from 'vue';
-import { chipClass } from '../tagColors.js';
+import { chipClass, chipStyle } from '../tagColors.js';
 
 const props = defineProps({
-    // Tag names, or tag objects with a name, e.g. post.tags. A tag's color comes from
-    // tag.pivot.color (the color on this model), or tag.color for plain objects.
+    // Tag names, or tag objects with a name and optional color and icon, e.g. post.tags.
     tags: { type: Array, default: () => [] },
+    // Icon components by name, e.g. tagIcons from tagIcons.js. Without it, icons aren't shown.
+    icons: { type: Object, default: () => ({}) },
 });
 
-const items = computed(() =>
-    props.tags.map((tag) =>
-        typeof tag === 'string' ? { name: tag, color: null } : { name: tag.name, color: tag.pivot?.color ?? tag.color ?? null },
-    ),
-);
+const items = computed(() => props.tags.map((tag) => (typeof tag === 'string' ? { name: tag, color: null } : tag)));
 </script>
 
 <template>
@@ -20,8 +17,10 @@ const items = computed(() =>
         <li
             v-for="tag in items"
             :key="tag.name"
-            :class="['rounded-full px-3 py-1 text-sm', chipClass(tag.color)]"
+            :class="['inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm', chipClass(tag.color)]"
+            :style="chipStyle(tag.color)"
         >
+            <component :is="icons[tag.icon]" v-if="icons[tag.icon]" class="size-3.5" aria-hidden="true" />
             {{ tag.name }}
         </li>
     </ul>

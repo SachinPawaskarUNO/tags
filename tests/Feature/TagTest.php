@@ -145,6 +145,31 @@ it('detaches tags when a model is deleted', function () {
     $this->assertDatabaseCount('tags', 2);
 });
 
+it('suggests every tag name in simple mode', function () {
+    // Arrange
+    TestModel::create(['name' => 'Example'])->attachTags(['tag2', 'tag1']);
+    Tag::findOrCreateByName('never-used');
+
+    // Act
+    $suggestions = TagManager::suggestions();
+
+    // Assert
+    expect($suggestions)->toBe(['never-used', 'tag1', 'tag2']);
+});
+
+it('suggests tag names grouped by model in advanced mode', function () {
+    // Arrange
+    config(['tags.mode' => 'advanced']);
+    TestModel::create(['name' => 'Example'])->attachTags(['tag2', 'tag1']);
+    Tag::findOrCreateByName('never-used');
+
+    // Act
+    $suggestions = TagManager::suggestions();
+
+    // Assert
+    expect($suggestions)->toBe(['TestModel' => ['tag1', 'tag2']]);
+});
+
 it('lists tags that are not attached to any model', function () {
     // Arrange
     $model = TestModel::create(['name' => 'Example'])->attachTags(['tag1', 'tag2']);

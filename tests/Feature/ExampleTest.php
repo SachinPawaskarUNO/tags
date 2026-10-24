@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use spawaskar\Tags\Models\Tag;
 use spawaskar\Tags\TagManager;
 
 it('resolves the singleton', function () {
@@ -13,7 +14,7 @@ it('returns the same instance from the container', function () {
 });
 
 it('merges the package config', function () {
-    expect(config('tags.placeholder'))->toBe('default');
+    expect(config('tags.model'))->toBe(Tag::class);
 });
 
 it('loads the package translations', function () {

@@ -14,3 +14,15 @@ export const tagColors = {
 export function chipClass(color) {
     return (tagColors[color] ?? tagColors.gray).chip;
 }
+
+// Inline styles for a hex color from the color picker
+export function chipStyle(color) {
+    if (!/^#[0-9a-f]{6}$/i.test(color ?? '')) {
+        return undefined;
+    }
+
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+    const light = (r * 299 + g * 587 + b * 114) / 1000 > 150;
+
+    return { backgroundColor: color, color: light ? '#000' : '#fff' };
+}

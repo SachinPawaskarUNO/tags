@@ -6,8 +6,8 @@ namespace spawaskar\Tags\Concerns;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
-use InvalidArgumentException;
 use spawaskar\Tags\Models\Tag;
+use spawaskar\Tags\TagManager;
 
 // Add tagging to any Eloquent model.
 trait HasTags
@@ -28,7 +28,7 @@ trait HasTags
     /** @return MorphToMany<Tag, $this> */
     public function tags(): MorphToMany
     {
-        return $this->morphToMany(Tag::class, 'taggable')->withPivot('color');
+        return $this->morphToMany(TagManager::tagModel(), 'taggable');
     }
 
     /**
@@ -53,7 +53,7 @@ trait HasTags
     {
         $names = array_map(Tag::normalizeName(...), (array) $names);
 
-        $this->tags()->detach(Tag::whereIn('name', $names)->pluck('id'));
+        $this->tags()->detach(TagManager::tagModel()::whereIn('name', $names)->pluck('id'));
 
         return $this;
     }
@@ -66,31 +66,6 @@ trait HasTags
     public function syncTags(string|array $names): static
     {
         $this->tags()->sync($this->findOrCreateTagIds((array) $names));
-
-        return $this;
-    }
-
-    /**
-     * Set the colors of this model's tags by name, e.g. ['pottery' => 'red'].
-     * A null color resets a tag to the default. Names the model doesn't have are skipped.
-     *
-     * @param  array<string, string|null>  $colors
-     */
-    public function setTagColors(array $colors): static
-    {
-        foreach ($colors as $color) {
-            if ($color !== null && ! in_array($color, Tag::COLORS, true)) {
-                throw new InvalidArgumentException("[{$color}] is not a tag color.");
-            }
-        }
-
-        foreach ($colors as $name => $color) {
-            $tag = $this->tags()->where('name', Tag::normalizeName((string) $name))->first();
-
-            if ($tag !== null) {
-                $this->tags()->updateExistingPivot($tag->id, ['color' => $color]);
-            }
-        }
 
         return $this;
     }
@@ -132,7 +107,7 @@ trait HasTags
     }
 
     /**
-     * Turn tag names into tag IDs, creating any tags that don't exist.
+     * Turn tag names into tag IDs, creating any tags that don't exist for this model.
      * Blank names are skipped.
      *
      * @param  array<int, string>  $names
@@ -142,6 +117,8 @@ trait HasTags
     {
         $names = array_filter(array_map(Tag::normalizeName(...), $names), fn (string $name) => $name !== '');
 
-        return array_map(fn (string $name): int => Tag::findOrCreateByName($name)->id, $names);
+        $model = TagManager::tagModel();
+
+        return array_map(fn (string $name): int => $model::findOrCreateByName($name, $this)->id, $names);
     }
 }
