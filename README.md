@@ -218,13 +218,13 @@ In advanced mode, import `TagInput` from the `advanced` folder instead of `simpl
 import TagInput from '@/vendor/tags/components/advanced/TagInput.vue';
 ```
 
-The color picker uses [shadcn.io's Vue color picker](https://www.shadcn.io/ui/vue/color-picker). Install it in your app first:
+The color picker is built on [Reka UI](https://reka-ui.com) and the icons come from [Lucide](https://lucide.dev), both of which Laravel's Vue starter kit already includes. If your app doesn't have them, install them first:
 
 ```bash
-npm install @ark-ui/vue lucide-vue-next
+npm install reka-ui @lucide/vue
 ```
 
-Then add the color-picker component from https://www.shadcn.io/ui/vue/color-picker. The picker is written in TypeScript, which Laravel's Vue starter kit already supports. Apps in simple mode don't import anything from `advanced`, so they don't need these installs.
+The picker is written in TypeScript, which the starter kit also supports. Apps in simple mode don't import anything from `advanced`, so they don't need these.
 
 In advanced mode, each new tag also records the type of model it was created for, in `$tag->model_type` (for example `App\Models\Post`). It's set automatically when `attachTags()` or `syncTags()` creates the tag, and it's only a label: the tag can still be attached to any model.
 
@@ -303,7 +303,7 @@ The icons come from [Lucide](https://lucide.dev/icons). The package supports the
 'icons' => ['file', 'folder'],
 ```
 
-Names that aren't in `Tag::ICONS` are ignored. To use an icon the package doesn't support, import its component from `lucide-vue-next` in the published `tagIcons.js`, and extend the `Tag` model (see the `model` config option) to add its name to `ICONS`.
+Names that aren't in `Tag::ICONS` are ignored. To use an icon the package doesn't support, import its component from `@lucide/vue` in the published `tagIcons.js`, and extend the `Tag` model (see the `model` config option) to add its name to `ICONS`.
 
 
 ## Changelog
