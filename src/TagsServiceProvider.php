@@ -16,7 +16,7 @@ class TagsServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/tags.php', 'tags');
 
-        $this->app->singleton(Tags::class);
+        $this->app->singleton(TagManager::class);
     }
 
     /**
@@ -41,6 +41,10 @@ class TagsServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../resources/views' => resource_path('views/vendor/tags'),
         ], ['tags', 'tags-views']);
+
+        $this->publishes([
+            __DIR__.'/../resources/js' => resource_path('js/vendor/tags'),
+        ], ['tags', 'tags-vue']);
 
         $this->publishes([
             __DIR__.'/../lang' => $this->app->langPath('vendor/tags'),

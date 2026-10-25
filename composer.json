@@ -12,7 +12,7 @@
     "authors": [
         {
             "name": "Sachin Pawaskar",
-            "email": "spawaskar@unomaha.edu, sachinpawaskar@msn.com",
+            "email": "spawaskar@unomaha.edu",
             "role": "Developer"
         }
     ],
@@ -21,14 +21,18 @@
         "illuminate/support": "^12.0||^13.0"
     },
     "require-dev": {
+        "inertiajs/inertia-laravel": "^3.5",
         "larastan/larastan": "^3.9",
-        "laravel/pint": "^1.29",
         "laravel/pao": "^1.0",
+        "laravel/pint": "^1.29",
         "orchestra/testbench": "^10.0||^11.0",
         "pestphp/pest": "^4.6||^5.0",
         "pestphp/pest-plugin-laravel": "^4.1||^5.0",
         "pestphp/pest-plugin-type-coverage": "^4.0||^5.0",
         "phpstan/extension-installer": "^1.4"
+    },
+    "suggest": {
+        "inertiajs/inertia-laravel": "Required for the tag manager page (^2.0||^3.0)."
     },
     "autoload": {
         "psr-4": {
@@ -90,7 +94,7 @@
                 "spawaskar\\Tags\\TagsServiceProvider"
             ],
             "aliases": {
-                "Tags": "spawaskar\\Tags\\Facades\\Tags"
+                "TagManager": "spawaskar\\Tags\\Facades\\TagManager"
             }
         }
     },

@@ -2,18 +2,19 @@
 
 declare(strict_types=1);
 
-use spawaskar\Tags\Tags;
+use spawaskar\Tags\Models\Tag;
+use spawaskar\Tags\TagManager;
 
 it('resolves the singleton', function () {
-    expect(app(Tags::class))->toBeInstanceOf(Tags::class);
+    expect(app(TagManager::class))->toBeInstanceOf(TagManager::class);
 });
 
 it('returns the same instance from the container', function () {
-    expect(app(Tags::class))->toBe(app(Tags::class));
+    expect(app(TagManager::class))->toBe(app(TagManager::class));
 });
 
 it('merges the package config', function () {
-    expect(config('tags.placeholder'))->toBe('default');
+    expect(config('tags.model'))->toBe(Tag::class);
 });
 
 it('loads the package translations', function () {
