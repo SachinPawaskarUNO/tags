@@ -1,9 +1,10 @@
 <script setup>
+import { Plus } from '@lucide/vue';
 import { DialogClose, DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DialogTrigger } from 'reka-ui';
 import { computed, ref, watch } from 'vue';
 import { loadTagIcons, pickableIcons, tagIcon } from '../../tagIcons.js';
 
-// An icon picker built on Reka UI: a button showing the icon, which opens a popup of every
+// An icon picker built on Reka UI: a button showing the icon (or Add icon), which opens a popup of every
 // icon users can pick, with a search. Picking None removes the icon.
 
 // An icon name, e.g. 'map-pin', or null for no icon.
@@ -50,9 +51,16 @@ function pick(name) {
                 type="button"
                 class="inline-flex items-center gap-2 rounded-md border border-input px-2 py-1 hover:bg-accent hover:text-accent-foreground"
             >
-                <component :is="current" v-if="current" class="size-4" aria-hidden="true" />
-                {{ icon ?? 'None' }}
-                <span class="sr-only">, choose an icon</span>
+                <!-- With an icon, it shows the icon and its name; without one, Add icon. -->
+                <template v-if="icon">
+                    <component :is="current" v-if="current" class="size-4" aria-hidden="true" />
+                    {{ icon }}
+                    <span class="sr-only">, change the icon</span>
+                </template>
+                <template v-else>
+                    <Plus class="size-4" aria-hidden="true" />
+                    Add icon
+                </template>
             </button>
         </DialogTrigger>
 
