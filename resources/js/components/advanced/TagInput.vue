@@ -53,6 +53,9 @@ const props = defineProps({
     iconsName: { type: String, default: null },
     descriptionsName: { type: String, default: null },
     placeholder: { type: String, default: 'Search tags...' },
+    // How many tags the dropdown shows before the user types: the first ones in suggestions,
+    // which TagManager::suggestions() orders most-used first. Typing searches them all. 0 shows all.
+    limit: { type: Number, default: 8 },
     // Keep in sync with the app's validation, e.g. 'tags.*' => 'max:32'.
     maxLength: { type: Number, default: 32 },
     // Matches Tag::MAX_DESCRIPTION_LENGTH on the server.
@@ -100,23 +103,40 @@ const colorOf = (tag) => detail(colors.value, tag, 'color');
 const iconOf = (tag) => detail(icons.value, tag, 'icon');
 const descriptionOf = (tag) => detail(descriptions.value, tag, 'description');
 
-// The existing tags in the dropdown: the suggestions that match what's typed, without tags
-// already added. A plain list is one group with no heading. Reka's own filtering is off, so
-// matching follows normalize().
-const groups = computed(() => {
+// The suggestions that match what's typed, without tags already added. A plain list is one
+// group with no heading. Reka's own filtering is off, so matching follows normalize().
+const matching = computed(() => {
     const search = normalize(input.value);
 
-    return Object.entries(grouped.value)
-        .map(([label, names]) => ({
-            label,
-            options: [...new Set(names.map(normalize))].filter(
-                (suggestion) => !tags.value.includes(suggestion) && suggestion.includes(search),
-            ),
-        }))
+    return Object.entries(grouped.value).map(([label, names]) => ({
+        label,
+        options: [...new Set(names.map(normalize))].filter(
+            (suggestion) => !tags.value.includes(suggestion) && suggestion.includes(search),
+        ),
+    }));
+});
+
+// The existing tags in the dropdown. Before the user types, only the first `limit` of them, so
+// a long list stays short; once they type, every match.
+const groups = computed(() => {
+    let room = input.value.trim() === '' && props.limit > 0 ? props.limit : Infinity;
+
+    return matching.value
+        .map((group) => {
+            const options = group.options.slice(0, room);
+            room -= options.length;
+
+            return { label: group.label, options };
+        })
         .filter((group) => group.options.length > 0);
 });
 
 const options = computed(() => groups.value.flatMap((group) => group.options));
+
+// How many matching tags the limit left out of the dropdown.
+const hiddenCount = computed(
+    () => matching.value.reduce((total, group) => total + group.options.length, 0) - options.value.length,
+);
 
 // The ComboboxRoot, for the option the arrow keys are on.
 const combobox = ref(null);
@@ -252,8 +272,6 @@ function onKeydown(event) {
                 :model-value="tags"
                 multiple
                 ignore-filter
-                open-on-focus
-                open-on-click
                 :reset-search-term-on-blur="false"
                 class="flex-1"
                 @update:model-value="onPick"
@@ -298,7 +316,8 @@ function onKeydown(event) {
                         :maxlength="maxLength"
                     />
 
-                    <!-- Opens and closes the list of existing tags. The arrow flips while it's open. -->
+                    <!-- Opens and closes the list of existing tags; typing or the down arrow key also opens it.
+                         The arrow flips while it's open. -->
                     <ComboboxTrigger
                         aria-label="Show existing tags"
                         :disabled="options.length === 0"
@@ -315,10 +334,6 @@ function onKeydown(event) {
                         aria-label="Existing tags"
                         class="z-50 w-[var(--reka-combobox-trigger-width)] rounded-md border border-input bg-popover text-sm text-popover-foreground shadow-md"
                     >
-                        <!-- A hint that typing searches the list; it stays put while the list scrolls. -->
-                        <p class="border-b border-input px-3 py-1.5 text-xs text-muted-foreground" aria-hidden="true">
-                            Type to search tags
-                        </p>
                         <ComboboxViewport class="max-h-60 p-1">
                             <ComboboxGroup v-for="group in groups" :key="group.label">
                                 <ComboboxLabel v-if="group.label" class="px-2 py-1 text-xs font-medium text-muted-foreground">
@@ -346,6 +361,10 @@ function onKeydown(event) {
                                 </ComboboxItem>
                             </ComboboxGroup>
                         </ComboboxViewport>
+                        <!-- Only when the limit cut the list short, so users know typing finds the rest. -->
+                        <p v-if="hiddenCount > 0" class="border-t border-input px-3 py-1.5 text-xs text-muted-foreground">
+                            Type to search for more
+                        </p>
                     </ComboboxContent>
                 </ComboboxPortal>
             </ComboboxRoot>

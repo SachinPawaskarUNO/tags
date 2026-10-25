@@ -74,8 +74,9 @@ class TagManager
 
     /**
      * Tag names for TagInput's suggestions. In simple mode, every tag's name, shown as buttons.
-     * In advanced mode, pass the page's model, e.g. Post::class, for that model's tags.
-     * Without a model, every tag, grouped by its model.
+     * In advanced mode, pass the page's model, e.g. Post::class, for that model's tags, most-used
+     * first, so TagInput can show the most-used ones before the user types. Without a model,
+     * every tag, grouped by its model.
      *
      * @param  class-string<Model>|null  $type
      * @return list<string>|array<string, list<string>>
@@ -97,7 +98,14 @@ class TagManager
             return $this->namesByModelType();
         }
 
-        return array_values(static::tagModel()::query()->forModel($type)->orderBy('name')->pluck('name')->all());
+        $table = static::tagModel()::query()->getModel()->getTable();
+
+        return array_values(static::tagModel()::query()
+            ->forModel($type)
+            ->orderByDesc(DB::table('taggables')->selectRaw('count(*)')->whereColumn('taggables.tag_id', "{$table}.id"))
+            ->orderBy('name')
+            ->pluck('name')
+            ->all());
     }
 
     /**
