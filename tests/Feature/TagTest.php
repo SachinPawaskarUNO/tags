@@ -170,47 +170,55 @@ it('suggests tag names grouped by model in advanced mode', function () {
     expect($suggestions)->toBe(['TestModel' => ['tag1', 'tag2']]);
 });
 
-it('records the model a new tag is created for in advanced mode', function () {
+it('records the model a new tag is for in advanced mode', function () {
     // Arrange
     useAdvancedMode();
-    Tag::findOrCreateByName('tag2');
 
     // Act
-    TestModel::create(['name' => 'Example'])->attachTags(['tag1', 'tag2']);
+    TestModel::create(['name' => 'Example'])->attachTags('tag1');
 
     // Assert
-    expect(Tag::orderBy('name')->pluck('model_type', 'name')->all())->toBe([
-        'tag1' => TestModel::class,
-        'tag2' => null,
-    ]);
+    expect(Tag::first()->model_type)->toBe(TestModel::class);
 });
 
-it('only sets model types from the config', function () {
+it('refuses to create a tag without a model in advanced mode', function () {
     // Arrange
     useAdvancedMode();
-    config(['tags.models' => [TestModel::class]]);
-    Tag::findOrCreateByName('tag1');
-
-    // Act
-    TagManager::setModelTypes(['tag1' => TestModel::class]);
 
     // Assert
-    expect(Tag::first()->model_type)->toBe(TestModel::class)
-        ->and(fn () => TagManager::setModelTypes(['tag1' => 'App\Models\Other']))->toThrow(InvalidArgumentException::class);
+    expect(fn () => Tag::create(['name' => 'tag1']))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => Tag::findOrCreateByName('tag1'))->toThrow(InvalidArgumentException::class);
 });
 
-it('suggests only the tags created for a model in advanced mode', function () {
+it('keeps each model\'s tags separate in advanced mode, even with the same name', function () {
+    // Arrange
+    useAdvancedMode();
+    $other = Tag::create(['name' => 'pottery', 'model_type' => 'App\Models\Other', 'color' => 'blue']);
+    $model = TestModel::create(['name' => 'Example']);
+
+    // Act
+    $model->attachTags('pottery');
+    TagManager::setColors(['pottery' => 'red'], TestModel::class);
+
+    // Assert
+    expect(Tag::where('name', 'pottery')->count())->toBe(2)
+        ->and($model->tags()->first()->model_type)->toBe(TestModel::class)
+        ->and($model->tags()->first()->color)->toBe('red')
+        ->and($other->fresh()->color)->toBe('blue')
+        ->and(TagManager::details(TestModel::class)['pottery']['color'])->toBe('red');
+});
+
+it('suggests only the tags for a model in advanced mode', function () {
     // Arrange
     useAdvancedMode();
     TestModel::create(['name' => 'Example'])->attachTags('tag1');
     Tag::create(['name' => 'tag2', 'model_type' => 'App\Models\Other']);
-    Tag::create(['name' => 'tag3']);
 
     // Act
     $suggestions = TagManager::suggestions(TestModel::class);
 
     // Assert
-    expect($suggestions)->toBe(['tag1', 'tag3']);
+    expect($suggestions)->toBe(['tag1']);
 });
 
 it('lists tags that are not attached to any model', function () {

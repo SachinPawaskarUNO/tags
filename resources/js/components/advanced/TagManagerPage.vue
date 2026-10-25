@@ -22,6 +22,8 @@ import TagCreateDialog from './TagCreateDialog.vue';
 const props = defineProps({
     // Every tag, with its details, model label, use count, and delete URL.
     tags: { type: Array, default: () => [] },
+    // Tag names by model type, so the New tag popup can check names for the model it's set to.
+    existing: { type: Object, default: () => ({}) },
     // The models to choose from in the New tag popup, from TagManager::models().
     models: { type: Array, default: () => [] },
     // The icon names users can pick, from TagManager::icons().
@@ -35,6 +37,9 @@ const props = defineProps({
 
 const search = ref('');
 
+// Whether to show only tags that aren't on anything.
+const unusedOnly = ref(false);
+
 // Whether the New tag popup is open.
 const creating = ref(false);
 
@@ -46,16 +51,17 @@ const deleting = ref(null);
 // Errors from the server, e.g. a name another user just took.
 const errors = ref({});
 
-// Tags whose name, description, or model contains what's typed.
+// Tags whose name, description, or model contains what's typed, and with Unused only, that
+// aren't on anything.
 const filtered = computed(() => {
     const term = search.value.trim().toLowerCase();
 
-    return props.tags.filter((tag) =>
-        [tag.name, tag.description, tag.model].some((text) => text?.toLowerCase().includes(term)),
+    return props.tags.filter(
+        (tag) =>
+            (!unusedOnly.value || tag.uses === 0) &&
+            [tag.name, tag.description, tag.model].some((text) => text?.toLowerCase().includes(term)),
     );
 });
-
-const names = computed(() => props.tags.map((tag) => tag.name));
 
 const uses = (count) => (count === 1 ? '1 item' : `${count} items`);
 
@@ -87,6 +93,10 @@ function confirmDelete() {
                 placeholder="Search tags..."
                 class="min-w-48 flex-1 rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
             />
+            <label class="inline-flex items-center gap-2 text-sm">
+                <input v-model="unusedOnly" type="checkbox" class="size-4 rounded border-input" />
+                Unused only
+            </label>
             <button
                 type="button"
                 class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90"
@@ -123,7 +133,7 @@ function confirmDelete() {
                             </span>
                         </td>
                         <td class="px-3 py-2 text-muted-foreground">{{ tag.description }}</td>
-                        <td v-if="models.length > 0" class="px-3 py-2">{{ tag.model ?? 'Any' }}</td>
+                        <td v-if="models.length > 0" class="px-3 py-2">{{ tag.model }}</td>
                         <td class="px-3 py-2">{{ uses(tag.uses) }}</td>
                         <td class="px-3 py-2 text-right">
                             <button
@@ -138,7 +148,13 @@ function confirmDelete() {
                     </tr>
                     <tr v-if="filtered.length === 0">
                         <td colspan="5" class="px-3 py-6 text-center text-muted-foreground">
-                            {{ tags.length === 0 ? 'No tags yet.' : 'No tags match your search.' }}
+                            {{
+                                tags.length === 0
+                                    ? 'No tags yet.'
+                                    : unusedOnly && search.trim() === ''
+                                      ? 'Every tag is in use.'
+                                      : 'No tags match your search.'
+                            }}
                         </td>
                     </tr>
                 </tbody>
@@ -147,7 +163,7 @@ function confirmDelete() {
 
         <TagCreateDialog
             v-model:open="creating"
-            :existing="names"
+            :existing="existing"
             :models="models"
             :available-icons="icons"
             :max-length="maxLength"

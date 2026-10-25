@@ -99,6 +99,21 @@ it('refuses a tag name that already exists', function () {
     expect(Tag::count())->toBe(1);
 });
 
+it('allows a name another model has, but not one the same model has', function () {
+    // Arrange
+    useAdvancedMode();
+    config(['tags.models' => [TestModel::class]]);
+    enableTagManager();
+    Tag::create(['name' => 'pottery', 'model_type' => 'App\Models\Other']);
+    $tag = ['name' => 'pottery', 'modelType' => (new TestModel)->getMorphClass()];
+
+    // Act and assert: session errors are checked after each request, since they're shared
+    $this->post(route('tags.manager.store'), $tag)->assertSessionHasNoErrors();
+    $this->post(route('tags.manager.store'), $tag)->assertSessionHasErrors('name');
+
+    expect(Tag::where('name', 'pottery')->count())->toBe(2);
+});
+
 it('refuses colors, icons, and models that are not allowed', function () {
     // Arrange
     useAdvancedMode();

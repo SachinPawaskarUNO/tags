@@ -2,23 +2,20 @@
 
 declare(strict_types=1);
 
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schema;
 use spawaskar\Tags\Tests\TestCase;
 
 uses(TestCase::class)->in(__DIR__);
 
-// Switch a test to advanced mode. The test tables are created in simple mode, so this adds
-// the columns the migration only creates in advanced mode.
+// Switch a test to advanced mode. The test tables are created in simple mode, so this runs the
+// package migration again in advanced mode, for its icon and model_type columns and its index.
 function useAdvancedMode(): void
 {
     config(['tags.mode' => 'advanced']);
 
-    Schema::table('tags', function (Blueprint $table): void {
-        $table->string('icon')->nullable();
-        $table->string('model_type')->nullable();
-    });
+    $migration = require __DIR__.'/../database/migrations/2026_01_01_000000_create_tags_table.php';
+    $migration->down();
+    $migration->up();
 }
 
 // Turn on the tag manager page, at a path and middleware like an app might set. The package

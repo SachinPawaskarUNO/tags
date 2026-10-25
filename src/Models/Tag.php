@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace spawaskar\Tags\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
@@ -16,7 +17,7 @@ use InvalidArgumentException;
  * @property string $name
  * @property string|null $color
  * @property string|null $icon
- * @property string|null $model_type The type of model the tag was created for, in advanced mode.
+ * @property string|null $model_type The model the tag belongs to. Required in advanced mode.
  * @property string|null $description
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -24,7 +25,8 @@ use InvalidArgumentException;
 class Tag extends Model
 {
     /**
-     * The colors a tag can have. Keep in sync with resources/js/tagColors.js.
+     * The palette: the only colors in simple mode. Advanced mode also accepts hex colors.
+     * Keep in sync with tagColors in resources/js/tagColors.js.
      */
     public const array COLORS = ['gray', 'red', 'orange', 'yellow', 'green', 'blue', 'purple'];
 
@@ -48,7 +50,8 @@ class Tag extends Model
     public const int MAX_DESCRIPTION_LENGTH = 255;
 
     /**
-     * Refuse to save a tag with a blank name, a description that's too long, or a color or icon that isn't valid.
+     * Refuse to save a tag with a blank name, a description that's too long, a color or icon
+     * that isn't valid, or in advanced mode, no model type.
      */
     protected static function booted(): void
     {
@@ -68,11 +71,37 @@ class Tag extends Model
             if ($tag->icon !== null && ! static::isValidIcon($tag->icon)) {
                 throw new InvalidArgumentException("[{$tag->icon}] is not a tag icon.");
             }
+
+            if (blank($tag->model_type) && static::recordsModelType()) {
+                throw new InvalidArgumentException('A tag needs a model type in advanced mode.');
+            }
         });
     }
 
     /**
-     * Whether a color is one of the palette's, or in advanced mode, a hex color like #eb5e41.
+     * Limit a query to one model's tags, e.g. Post::class, in advanced mode. In simple mode,
+     * or without a model, every tag.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeForModel(Builder $query, ?string $type): void
+    {
+        if ($type !== null && static::recordsModelType()) {
+            $query->where('model_type', static::morphClassFor($type));
+        }
+    }
+
+    /**
+     * The value model_type stores for a model class, respecting the app's morph map. A value
+     * that isn't a model class, like a morph alias, is returned as is.
+     */
+    public static function morphClassFor(string $type): string
+    {
+        return is_subclass_of($type, Model::class) ? (new $type)->getMorphClass() : $type;
+    }
+
+    /**
+     * Whether a color is one of the palette's, or in advanced mode, a hex color.
      */
     public static function isValidColor(string $color): bool
     {
@@ -84,9 +113,10 @@ class Tag extends Model
     }
 
     /**
-     * Whether an icon is enabled: with every Lucide icon enabled, any Lucide-style name, or
-     * else one of the names in the tags.icons config option. Icons are only available in
-     * advanced mode. Names aren't checked against Lucide, so one it doesn't have shows no icon.
+     * Whether an icon is allowed. Icons are only available in advanced mode. When tags.icons is
+     * '*', any name in Lucide's format (e.g. map-pin, up to 64 characters) is allowed; otherwise,
+     * only the names it lists. Names aren't checked against Lucide, so one it doesn't have shows
+     * no icon.
      */
     public static function isValidIcon(string $icon): bool
     {
@@ -133,16 +163,22 @@ class Tag extends Model
     }
 
     /**
-     * Find a tag by name, or create it if it doesn't exist. In advanced mode, a new tag
-     * records the type of model it was created for. An existing tag keeps its own.
+     * Find a tag by name, or create it if it doesn't exist. In advanced mode, tags belong to
+     * a model, so this finds or creates $for's own tag, and $for is required.
      */
     public static function findOrCreateByName(string $name, ?Model $for = null): self
     {
-        $attributes = $for !== null && static::recordsModelType()
-            ? ['model_type' => $for->getMorphClass()]
-            : [];
+        $name = static::normalizeName($name);
 
-        return static::firstOrCreate(['name' => static::normalizeName($name)], $attributes);
+        if (! static::recordsModelType()) {
+            return static::firstOrCreate(['name' => $name]);
+        }
+
+        if ($for === null) {
+            throw new InvalidArgumentException('In advanced mode, a tag belongs to a model, so pass the model it\'s for.');
+        }
+
+        return static::firstOrCreate(['name' => $name, 'model_type' => $for->getMorphClass()]);
     }
 
     /**

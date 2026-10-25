@@ -4,6 +4,7 @@ let nextId = 0;
 </script>
 
 <script setup>
+import { ChevronDown } from '@lucide/vue';
 import {
     ComboboxAnchor,
     ComboboxContent,
@@ -13,6 +14,7 @@ import {
     ComboboxLabel,
     ComboboxPortal,
     ComboboxRoot,
+    ComboboxTrigger,
     ComboboxViewport,
 } from 'reka-ui';
 import { computed, ref, watch } from 'vue';
@@ -22,25 +24,26 @@ import TagColorPicker from './TagColorPicker.vue';
 import TagCreateDialog from './TagCreateDialog.vue';
 import TagIconPicker from './TagIconPicker.vue';
 
-// TagInput for advanced mode: existing tags are in a dropdown under the input, filtered by
-// typing, and new tags are made with the New tag popup, which sets their description, color,
-// icon, and model. Clicking a tag changes its color, icon, and description. Needs the installs
-// in the README's advanced mode section.
+// TagInput for advanced mode: the page's model's tags are in a dropdown under the input,
+// filtered by typing, and new tags are made with the New tag popup, which sets their
+// description, color, and icon. New tags are for the page's model. Needs the installs in the
+// README's advanced mode section.
 
 // Attributes like id and aria-label go on the text input, so <label for="..."> works.
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps({
     // Tag names to suggest, e.g. TagManager::suggestions(Post::class) for the page's model's tags.
-    // A list grouped by model, like { Post: ['pottery'] }, shows a heading for each.
+    // A list grouped by model shows a heading for each.
     // Typing only adds tags from this list.
     suggestions: { type: [Array, Object], default: () => [] },
-    // Every tag's saved color, icon, and description by name, from TagManager::details(). Picked
-    // tags show them right away, and names from other models aren't offered for creating.
+    // The page's model's tags' saved color, icon, and description by name, from
+    // TagManager::details(Post::class). Picked tags show them right away.
     details: { type: Object, default: () => ({}) },
-    // The models to choose from in the New tag popup, from TagManager::models().
+    // The models from TagManager::models(), for the New tag popup's model field.
     models: { type: Array, default: () => [] },
-    // The page's model type, e.g. 'App\\Models\\Post'. The New tag popup starts on it.
+    // The page's model type, from $post->getMorphClass(), e.g. App\Models\Post. New tags are
+    // for this model, so the New tag popup shows it but doesn't let it change.
     model: { type: String, default: null },
     // The icon names users can pick, from TagManager::icons(). Without it, every Lucide icon.
     availableIcons: { type: Array, default: null },
@@ -49,8 +52,7 @@ const props = defineProps({
     colorsName: { type: String, default: null },
     iconsName: { type: String, default: null },
     descriptionsName: { type: String, default: null },
-    modelTypesName: { type: String, default: null },
-    placeholder: { type: String, default: 'Add a tag...' },
+    placeholder: { type: String, default: 'Search tags...' },
     // Keep in sync with the app's validation, e.g. 'tags.*' => 'max:32'.
     maxLength: { type: Number, default: 32 },
     // Matches Tag::MAX_DESCRIPTION_LENGTH on the server.
@@ -59,12 +61,11 @@ const props = defineProps({
 
 const tags = defineModel({ type: Array, default: () => [] });
 
-// Details by tag name. Save them with TagManager::setColors(), setIcons(), setDescriptions(),
-// and setModelTypes(), after syncTags().
+// Details by tag name. Save them with TagManager::setColors(), setIcons(), and
+// setDescriptions(), passing the page's model, after syncTags().
 const colors = defineModel('colors', { type: Object, default: () => ({}) });
 const icons = defineModel('icons', { type: Object, default: () => ({}) });
 const descriptions = defineModel('descriptions', { type: Object, default: () => ({}) });
-const modelTypes = defineModel('modelTypes', { type: Object, default: () => ({}) });
 
 const input = ref('');
 
@@ -75,11 +76,8 @@ const editing = ref(null);
 const creating = ref(false);
 const creatingName = ref('');
 
-// A typed name that isn't a tag yet, to offer creating it.
+// A typed name that isn't one of this model's tags yet, to offer creating it.
 const unknownName = ref('');
-
-// A typed name that's a tag for another model, so it isn't offered for creating.
-const otherModelName = ref('');
 
 const id = `tag-input-${nextId++}`;
 
@@ -91,8 +89,9 @@ const grouped = computed(() => (Array.isArray(props.suggestions) ? { '': props.s
 // The tag names that can be added here: the suggestions, plus the tags already added.
 const known = computed(() => new Set([...Object.values(grouped.value).flat().map(normalize), ...tags.value]));
 
-// Every tag name that exists, including other models' tags.
-const allNames = computed(() => new Set([...known.value, ...Object.keys(props.details).map(normalize)]));
+// The New tag popup's model field: just the page's model, which it can't change. Without
+// the page's model in models, the field is hidden.
+const lockedModels = computed(() => props.models.filter((option) => option.value === props.model));
 
 // A tag's color, icon, or description: the one set here, or else the saved one from details.
 // Saved ones are only shown, not added to the v-models, so saving doesn't rewrite them.
@@ -124,11 +123,10 @@ const combobox = ref(null);
 
 watch(input, () => {
     unknownName.value = '';
-    otherModelName.value = '';
 });
 
-// Adds an existing tag. A name that isn't a tag yet isn't added; the user is offered
-// the New tag popup instead. Another model's tag isn't added either.
+// Adds an existing tag. A name that isn't one of this model's tags yet isn't added; the
+// user is offered the New tag popup instead.
 function addTag(name) {
     const tag = normalize(name);
 
@@ -137,11 +135,7 @@ function addTag(name) {
     }
 
     if (!known.value.has(tag)) {
-        if (allNames.value.has(tag)) {
-            otherModelName.value = tag;
-        } else {
-            unknownName.value = tag;
-        }
+        unknownName.value = tag;
 
         return;
     }
@@ -173,10 +167,6 @@ function onCreate(tag) {
         descriptions.value = { ...descriptions.value, [tag.name]: tag.description };
     }
 
-    if (tag.modelType) {
-        modelTypes.value = { ...modelTypes.value, [tag.name]: tag.modelType };
-    }
-
     input.value = '';
     unknownName.value = '';
 }
@@ -189,7 +179,6 @@ function removeTag(tag) {
     colors.value = without(colors.value, tag);
     icons.value = without(icons.value, tag);
     descriptions.value = without(descriptions.value, tag);
-    modelTypes.value = without(modelTypes.value, tag);
 
     if (editing.value === tag) {
         editing.value = null;
@@ -200,7 +189,7 @@ function toggleEditing(tag) {
     editing.value = editing.value === tag ? null : tag;
 }
 
-// Unlike the palette, the picker stays open, so the color can be adjusted more than once.
+// The color picker stays open, so the color can be adjusted more than once.
 function setColor(tag, color) {
     colors.value = { ...colors.value, [tag]: color };
 }
@@ -308,6 +297,15 @@ function onKeydown(event) {
                         :placeholder="placeholder"
                         :maxlength="maxLength"
                     />
+
+                    <!-- Opens and closes the list of existing tags. The arrow flips while it's open. -->
+                    <ComboboxTrigger
+                        aria-label="Show existing tags"
+                        :disabled="options.length === 0"
+                        class="group ml-auto rounded-sm p-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    >
+                        <ChevronDown class="size-4 transition-transform group-data-[state=open]:rotate-180" aria-hidden="true" />
+                    </ComboboxTrigger>
                 </ComboboxAnchor>
 
                 <ComboboxPortal v-if="options.length > 0">
@@ -317,6 +315,10 @@ function onKeydown(event) {
                         aria-label="Existing tags"
                         class="z-50 w-[var(--reka-combobox-trigger-width)] rounded-md border border-input bg-popover text-sm text-popover-foreground shadow-md"
                     >
+                        <!-- A hint that typing searches the list; it stays put while the list scrolls. -->
+                        <p class="border-b border-input px-3 py-1.5 text-xs text-muted-foreground" aria-hidden="true">
+                            Type to search tags
+                        </p>
                         <ComboboxViewport class="max-h-60 p-1">
                             <ComboboxGroup v-for="group in groups" :key="group.label">
                                 <ComboboxLabel v-if="group.label" class="px-2 py-1 text-xs font-medium text-muted-foreground">
@@ -364,10 +366,6 @@ function onKeydown(event) {
             </button>
         </p>
 
-        <p v-if="otherModelName" class="text-sm text-muted-foreground">
-            "{{ otherModelName }}" is a tag for another model, so it can't be added here.
-        </p>
-
         <div v-if="editing" class="space-y-2 text-sm">
             <div class="flex flex-wrap items-center gap-2">
                 <span class="text-muted-foreground">Color for {{ editing }}:</span>
@@ -405,8 +403,9 @@ function onKeydown(event) {
             v-model:open="creating"
             :initial-name="creatingName"
             :initial-model="model"
-            :existing="[...allNames]"
-            :models="models"
+            :existing="[...known]"
+            :models="lockedModels"
+            lock-model
             :available-icons="availableIcons"
             :max-length="maxLength"
             :max-description-length="maxDescriptionLength"
@@ -421,7 +420,6 @@ function onKeydown(event) {
             [colorsName, colors],
             [iconsName, icons],
             [descriptionsName, descriptions],
-            [modelTypesName, modelTypes],
         ]" :key="index">
             <template v-if="fieldName">
                 <template v-for="tag in tags" :key="`${fieldName}-${tag}`">

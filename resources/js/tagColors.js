@@ -1,5 +1,9 @@
-// The colors a tag can have. Keep in sync with Tag::COLORS in src/Models/Tag.php.
-// Class names are written out in full so Tailwind includes them in the build.
+// Tag colors for both modes. Simple mode picks from the palette below; advanced mode can also
+// use any hex color from the color picker. Chips use both helpers, so either kind shows right:
+// :class="chipClass(color)" :style="chipStyle(color)"
+
+// The palette, used by simple mode's TagInput for its swatches. Keep in sync with Tag::COLORS
+// in src/Models/Tag.php. Class names are written out in full so Tailwind includes them in the build.
 export const tagColors = {
     gray: { chip: 'bg-muted text-muted-foreground', swatch: 'bg-gray-400' },
     red: { chip: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200', swatch: 'bg-red-500' },
@@ -10,12 +14,14 @@ export const tagColors = {
     purple: { chip: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200', swatch: 'bg-purple-500' },
 };
 
-// Chip classes for a color. Tags without a color are gray.
+// Chip classes for a palette color, in either mode. Anything else (no color, or a hex color
+// from advanced mode) is gray, and chipStyle() colors hex chips on top.
 export function chipClass(color) {
     return (tagColors[color] ?? tagColors.gray).chip;
 }
 
-// Inline styles for a hex color from the color picker
+// Inline styles for a hex color from advanced mode's color picker, e.g. '#eb5e41', with black
+// or white text, whichever is easier to read. Palette colors and no color get none.
 export function chipStyle(color) {
     if (!/^#[0-9a-f]{6}$/i.test(color ?? '')) {
         return undefined;

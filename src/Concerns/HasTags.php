@@ -32,8 +32,8 @@ trait HasTags
     }
 
     /**
-     * Attach tags by name, creating any that don't exist.
-     * Names are trimmed and lowercased.
+     * Attach tags by name, creating any that don't exist. In advanced mode, these are this
+     * model's own tags. Names are trimmed and lowercased.
      *
      * @param  string|array<int, string>  $names
      */
@@ -53,7 +53,8 @@ trait HasTags
     {
         $names = array_map(Tag::normalizeName(...), (array) $names);
 
-        $this->tags()->detach(TagManager::tagModel()::whereIn('name', $names)->pluck('id'));
+        // Only the model's own tags, since in advanced mode other models can have tags with the same names.
+        $this->tags()->detach($this->tags()->whereIn('name', $names)->get());
 
         return $this;
     }

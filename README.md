@@ -10,7 +10,7 @@
     <a href="https://packagist.org/packages/spawaskar/tags"><img src="https://img.shields.io/packagist/dt/spawaskar/tags.svg?style=flat-square" alt="Total Downloads"></a>
 </p>
 
-This package allows you to add tags to any model
+This package allows you to add tags to any model.
 
 ## Installation
 
@@ -36,6 +36,8 @@ php artisan vendor:publish --tag="tags-config"
 
 ### Publishing and Running the Migrations
 
+If you'll use advanced mode, publish the config and set `'mode' => 'advanced'` first. The migration reads the mode to decide which columns to create.
+
 ```bash
 php artisan vendor:publish --tag="tags-migrations"
 php artisan migrate
@@ -47,7 +49,7 @@ php artisan migrate
 php artisan vendor:publish --tag="tags-views"
 ```
 
-### Publishing the Vue Component
+### Publishing the Vue Components
 
 ```bash
 php artisan vendor:publish --tag="tags-vue"
@@ -118,7 +120,7 @@ There's no Blade tag input. Submit the tags from your own form as an array (for 
 
 ### Vue
 
-If your pages are built with Vue, the package includes two Vue 3 components (Vue 3.4 or later). After publishing them with `--tag="tags-vue"`, import them from your app:
+If your pages are built with Vue, the package includes Vue 3 components (Vue 3.4 or later). After publishing them with `--tag="tags-vue"`, import the ones you need from your app:
 
 ```js
 import TagInput from '@/vendor/tags/components/simple/TagInput.vue';
@@ -129,7 +131,7 @@ They're styled with Tailwind using shadcn-style theme colors (`bg-muted`, `borde
 
 #### Showing tags
 
-`TagList` shows tags as chips. Pass tag names, or tag objects with a `name` and an optional `color`:
+`TagList` shows tags as chips. Pass tag names, or tag objects with a `name` and an optional `color` and `icon` (to show icons, see [Tag icons](#tag-icons)):
 
 ```vue
 <TagList :tags="post.tags" />
@@ -224,22 +226,24 @@ The color picker is built on [Reka UI](https://reka-ui.com) and the icons come f
 npm install reka-ui @lucide/vue
 ```
 
-The icons need `@lucide/vue` 1.42.0 or later, which added `circle-dashed-check`. If your app has an older version, update it with `npm install @lucide/vue@latest`.
+Icons come from your app's installed `@lucide/vue`, so the icons users can pick are the ones that version has. To get Lucide's newest icons, update it with `npm install @lucide/vue@latest`.
 
 The picker is written in TypeScript, which the starter kit also supports. Apps in simple mode don't import anything from `advanced`, so they don't need these.
 
-In advanced mode, each new tag also records the type of model it was created for, in `$tag->model_type` (for example `App\Models\Post`). It's set automatically when `attachTags()` or `syncTags()` creates the tag, and it's only a label: the tag can still be attached to any model.
+In advanced mode, every tag belongs to one model, in `$tag->model_type` (for example `App\Models\Post`), and is only used on that model. Tag names are unique per model, so posts and videos can each have their own `pottery` tag, with its own color, icon, and description. `attachTags()` and `syncTags()` find or create the model's own tags, and creating a tag without a model throws an `InvalidArgumentException`.
 
-The `icon` and `model_type` columns are only created when the migration runs in advanced mode. If you switch to advanced mode after migrating, add them with a migration of your own:
+The `icon` and `model_type` columns, and the per-model unique index, are only created when the migration runs in advanced mode. Set the mode before migrating. If you switch to advanced mode after migrating, give every existing tag a model type and update the table with a migration of your own:
 
 ```php
 Schema::table('tags', function (Blueprint $table) {
     $table->string('icon')->nullable();
-    $table->string('model_type')->nullable();
+    $table->string('model_type');           // fill this in for existing tags first
+    $table->dropUnique(['name']);
+    $table->unique(['model_type', 'name']);
 });
 ```
 
-Until then, new tags don't record their model type.
+Until then, tags work as in simple mode: one tag per name, shared by every model.
 
 In advanced mode, tags also accept hex colors like `#eb5e41`. `Rule::in(Tag::COLORS)` would reject those, so validate with `Tag::isValidColor()` instead:
 
@@ -252,29 +256,29 @@ $request->validate([
 
 #### Creating tags
 
-In advanced mode, typing in `TagInput` only adds tags that already exist. New tags are made with the **New tag** button, which opens a popup for the tag's name, description, color, icon, and model. If a user types a name that isn't a tag yet, `TagInput` offers to open the popup for it. Nothing is saved until the form is.
+In advanced mode, typing in `TagInput` only adds the page's model's tags. New tags are made with the **New tag** button, which opens a popup for the tag's name, description, color, and icon. If a user types a name that isn't one of the model's tags yet, `TagInput` offers to open the popup for it. Nothing is saved until the form is.
 
-List the models users can choose from in the config. Without any, the popup hides the model field, and new tags are labeled with the model they're saved on:
+New tags are always for the page's model. The popup shows the model, but doesn't let users change it. List your models in the config, so the popup (and the tag manager page) can name them:
 
 ```php
 // config/tags.php
 'models' => [App\Models\Post::class, App\Models\Video::class],
 ```
 
-Tags are created for a model and shown by model: pass the page's model to `TagManager::suggestions()`, and users only see the tags created for it, plus any tags created without a model. Pass every tag's details too, from `TagManager::details()`. Existing tags then show their saved color and icon as soon as they're picked, and a name from another model isn't created again:
+Pass the page's model to `TagManager::suggestions()` and `TagManager::details()`, so users only see that model's tags, with their saved colors and icons as soon as they're picked:
 
 ```php
 return Inertia::render('Posts/Edit', [
     'post' => $post->load('tags'),
     'suggestions' => TagManager::suggestions(Post::class),
-    'details' => TagManager::details(),
+    'details' => TagManager::details(Post::class),
     'models' => TagManager::models(),
     'model' => $post->getMorphClass(),
     'icons' => TagManager::icons(),
 ]);
 ```
 
-Without a model, `TagManager::suggestions()` returns every tag, grouped by the model it was created for, with tags that have no model under "Other".
+Without a model, `TagManager::suggestions()` returns every tag, grouped by its model.
 
 ```js
 const form = useForm({
@@ -282,7 +286,6 @@ const form = useForm({
     colors: Object.fromEntries(props.post.tags.map((tag) => [tag.name, tag.color])),
     icons: Object.fromEntries(props.post.tags.map((tag) => [tag.name, tag.icon])),
     descriptions: Object.fromEntries(props.post.tags.map((tag) => [tag.name, tag.description])),
-    modelTypes: {},
 });
 ```
 
@@ -292,7 +295,6 @@ const form = useForm({
     v-model:colors="form.colors"
     v-model:icons="form.icons"
     v-model:descriptions="form.descriptions"
-    v-model:model-types="form.modelTypes"
     :suggestions="suggestions"
     :details="details"
     :models="models"
@@ -301,17 +303,16 @@ const form = useForm({
 />
 ```
 
-Then save the tags first, so new ones exist, and their details after:
+Then save the tags first, so new ones exist, and their details after. Pass the model to the setters, since other models can have tags with the same names:
 
 ```php
 $post->syncTags($request->input('tags', []));
-TagManager::setColors($request->input('colors', []));
-TagManager::setIcons($request->input('icons', []));
-TagManager::setDescriptions($request->input('descriptions', []));
-TagManager::setModelTypes($request->input('modelTypes', []));
+TagManager::setColors($request->input('colors', []), Post::class);
+TagManager::setIcons($request->input('icons', []), Post::class);
+TagManager::setDescriptions($request->input('descriptions', []), Post::class);
 ```
 
-Clicking a tag in `TagInput` also lets users change its description. Descriptions can be up to 255 characters (`Tag::MAX_DESCRIPTION_LENGTH`), and a blank description removes it. `setModelTypes()` only accepts models from the config. In a regular form submit, set `descriptions-name` and `model-types-name` to render hidden inputs, like `name` does for the tags.
+Clicking a tag in `TagInput` also lets users change its description. Descriptions can be up to 255 characters (`Tag::MAX_DESCRIPTION_LENGTH`), and a blank description removes it. In a regular form submit, set `descriptions-name` to render hidden inputs, like `name` does for the tags.
 
 #### Tag icons
 
@@ -346,7 +347,7 @@ $request->validate([
     'icons.*' => ['nullable', 'string', fn ($attribute, $value, $fail) => Tag::isValidIcon($value) || $fail('Not a tag icon.')],
 ]);
 
-TagManager::setIcons($request->input('icons', []));
+TagManager::setIcons($request->input('icons', []), Post::class);
 ```
 
 In a regular form submit, set `icons-name` to render hidden inputs for the icons.
@@ -372,9 +373,10 @@ With every icon offered, the server accepts any name in Lucide's format but does
 
 #### Tag manager page
 
-In advanced mode, the package can add a page that lists every tag with its color, icon, description, model, and how many items it's on. Users can search the tags, create new ones with the **New tag** popup, and delete them. Deleting a tag removes it from everything it's on.
+In advanced mode, the package can add a page that lists every tag with its color, icon, description, model, and how many items it's on. Users can search the tags, show only unused ones (tags that aren't on anything), create new ones with the **New tag** popup, and delete them. Deleting a tag removes it from everything it's on.
 
-The page uses Inertia, so install it if your app doesn't have it yet:11
+The page uses Inertia, so install it if your app doesn't have it yet (the Laravel Vue starter kit already does):
+
 ```bash
 composer require inertiajs/inertia-laravel
 ```
@@ -401,13 +403,14 @@ Publish the config with `--tag="tags-config"` and turn the page on:
 import AppLayout from '@/layouts/AppLayout.vue';
 import TagManagerPage from '@/vendor/tags/components/advanced/TagManagerPage.vue';
 
-defineProps(['tags', 'models', 'icons', 'storeUrl', 'maxDescriptionLength']);
+defineProps(['tags', 'existing', 'models', 'icons', 'storeUrl', 'maxDescriptionLength']);
 </script>
 
 <template>
     <AppLayout>
         <TagManagerPage
             :tags="tags"
+            :existing="existing"
             :models="models"
             :icons="icons"
             :store-url="storeUrl"
@@ -417,7 +420,9 @@ defineProps(['tags', 'models', 'icons', 'storeUrl', 'maxDescriptionLength']);
 </template>
 ```
 
-The New tag popup offers the models from the `models` config option, like `TagInput`.
+If your app sets a default layout for every page (in `app.ts` or `app.js`), skip the `<AppLayout>` wrapper, or the layout shows twice.
+
+The page isn't for one model, so its New tag popup lets users choose the tag's model, from the `models` config option. Every tag needs a model, so list at least one there to create tags on this page.
 
 
 ## Changelog

@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -41,13 +42,18 @@ class TagManagerController
                 'color' => $tag->color,
                 'icon' => $tag->icon,
                 'description' => $tag->description,
+                'modelType' => $tag->model_type,
                 'model' => $tag->model_type === null ? null : class_basename(Relation::getMorphedModel($tag->model_type) ?? $tag->model_type),
                 'uses' => (int) $tag->getAttribute('uses'),
                 'deleteUrl' => route('tags.manager.destroy', $tag->id),
             ]);
 
+        // Names already taken, by model type, so the New tag popup can check the model it's set to.
+        $existing = $tags->groupBy('modelType')->map(fn (Collection $group): Collection => $group->pluck('name')->values());
+
         return Inertia::render((string) config('tags.manager.component', 'tags/Manager'), [
             'tags' => $tags,
+            'existing' => $existing,
             'models' => $manager->models(),
             'icons' => $manager->icons(),
             'storeUrl' => route('tags.manager.store'),
@@ -64,9 +70,16 @@ class TagManagerController
 
         $request->merge(['name' => Tag::normalizeName((string) $request->string('name'))]);
 
+        // In advanced mode, names only need to be unique within the tag's model.
+        $unique = Rule::unique((new $model)->getTable(), 'name');
+
+        if ($model::recordsModelType()) {
+            $unique->where('model_type', (string) $request->string('modelType'));
+        }
+
         /** @var array{name: string, description?: string|null, color?: string|null, icon?: string|null, modelType?: string|null} $validated */
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:32', Rule::unique((new $model)->getTable(), 'name')],
+            'name' => ['required', 'string', 'max:32', $unique],
             'description' => ['nullable', 'string', 'max:'.Tag::MAX_DESCRIPTION_LENGTH],
             'color' => ['nullable', 'string', function (string $attribute, mixed $value, Closure $fail) use ($model): void {
                 if (! is_string($value) || ! $model::isValidColor($value)) {
@@ -78,7 +91,11 @@ class TagManagerController
                     $fail('The icon is not one of the enabled icons.');
                 }
             }],
-            'modelType' => ['nullable', 'string', Rule::in(array_column($manager->models(), 'value'))],
+            'modelType' => [
+                $model::recordsModelType() ? 'required' : 'nullable',
+                'string',
+                Rule::in(array_column($manager->models(), 'value')),
+            ],
         ]);
 
         $description = trim((string) ($validated['description'] ?? ''));

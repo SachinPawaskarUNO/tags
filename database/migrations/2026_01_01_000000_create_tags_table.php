@@ -14,14 +14,19 @@ return new class extends Migration
 
         Schema::create('tags', function (Blueprint $table) use ($advanced) {
             $table->id();
-            $table->string('name', 32)->unique();
+            $table->string('name', 32);
             $table->string('color')->nullable();
             $table->string('description', 255)->nullable();
             $table->timestamps();
 
+            // In advanced mode, every tag belongs to one model, and names are unique per model,
+            // so two models can each have their own tag with the same name.
             if ($advanced) {
                 $table->string('icon')->nullable();
-                $table->string('model_type')->nullable();
+                $table->string('model_type');
+                $table->unique(['model_type', 'name']);
+            } else {
+                $table->unique('name');
             }
         });
 

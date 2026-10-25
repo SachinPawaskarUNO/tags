@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace spawaskar\Tags;
 
-use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
-use InvalidArgumentException;
 use spawaskar\Tags\Models\Tag;
 
 // Queries about all tags, rather than one model's tags.
@@ -30,7 +28,7 @@ class TagManager
     }
 
     /**
-     * Tags that aren't attached to any model.
+     * Tags that aren't on anything: no record has them attached, e.g. new tags never used yet.
      *
      * @return Collection<int, Tag>
      */
@@ -43,7 +41,7 @@ class TagManager
     }
 
     /**
-     * Tags attached to at least one model of the given class, e.g. Post::class.
+     * Tags attached to at least one record of the given class, e.g. Post::class.
      *
      * @param  class-string<Model>  $type
      * @return Collection<int, Tag>
@@ -76,8 +74,8 @@ class TagManager
 
     /**
      * Tag names for TagInput's suggestions. In simple mode, every tag's name, shown as buttons.
-     * In advanced mode, pass the page's model, e.g. Post::class, for the tags created for it
-     * (plus tags created without a model). Without a model, every tag, grouped by its model.
+     * In advanced mode, pass the page's model, e.g. Post::class, for that model's tags.
+     * Without a model, every tag, grouped by its model.
      *
      * @param  class-string<Model>|null  $type
      * @return list<string>|array<string, list<string>>
@@ -99,18 +97,11 @@ class TagManager
             return $this->namesByModelType();
         }
 
-        $morphClass = (new $type)->getMorphClass();
-
-        return array_values(static::tagModel()::query()
-            ->where(fn (EloquentBuilder $query) => $query->where('model_type', $morphClass)->orWhereNull('model_type'))
-            ->orderBy('name')
-            ->pluck('name')
-            ->all());
+        return array_values(static::tagModel()::query()->forModel($type)->orderBy('name')->pluck('name')->all());
     }
 
     /**
-     * Every tag's name. Pass it to the advanced TagInput's existing, so a name from another
-     * model isn't created again.
+     * Every tag's name.
      *
      * @return list<string>
      */
@@ -120,16 +111,18 @@ class TagManager
     }
 
     /**
-     * Every tag's color, icon, and description, by name. Pass it to the advanced TagInput's
-     * details, so existing tags show their color and icon as soon as they're picked.
+     * Tags' color, icon, and description, by name. Pass it to the advanced TagInput's details,
+     * so existing tags show their color and icon as soon as they're picked. In advanced mode,
+     * pass the page's model, e.g. Post::class, since other models can have tags with the same names.
      *
+     * @param  class-string<Model>|null  $type
      * @return array<string, array{color: string|null, icon: string|null, description: string|null}>
      */
-    public function details(): array
+    public function details(?string $type = null): array
     {
         $details = [];
 
-        foreach (static::tagModel()::orderBy('name')->get() as $tag) {
+        foreach (static::tagModel()::query()->forModel($type)->orderBy('name')->get() as $tag) {
             $details[$tag->name] = [
                 'color' => $tag->color,
                 'icon' => $tag->icon,
@@ -141,28 +134,18 @@ class TagManager
     }
 
     /**
-     * Every tag's name, grouped by the model it was created for. Tags created without a
-     * model are listed last, under "Other".
+     * Every tag's name, grouped by the model it belongs to.
      *
      * @return array<string, list<string>>
      */
     public function namesByModelType(): array
     {
         $groups = [];
-        $other = [];
 
-        $tags = static::tagModel()::query()->orderBy('model_type')->orderBy('name')->get(['name', 'model_type']);
+        $tags = static::tagModel()::query()->whereNotNull('model_type')->orderBy('model_type')->orderBy('name')->get(['name', 'model_type']);
 
         foreach ($tags as $tag) {
-            if ($tag->model_type === null) {
-                $other[] = $tag->name;
-            } else {
-                $groups[class_basename(Relation::getMorphedModel($tag->model_type) ?? $tag->model_type)][] = $tag->name;
-            }
-        }
-
-        if ($other !== []) {
-            $groups['Other'] = $other;
+            $groups[class_basename(Relation::getMorphedModel((string) $tag->model_type) ?? (string) $tag->model_type)][] = $tag->name;
         }
 
         return $groups;
@@ -196,15 +179,17 @@ class TagManager
     }
 
     /**
-     * Set tag colors by name, e.g. ['pottery' => 'red']. A null color resets
-     * the tag to the default. Names that aren't tags yet are skipped.
+     * Set tag colors by name, e.g. ['pottery' => 'red']. A null color resets the tag to the
+     * default. Names that aren't tags yet are skipped. In advanced mode, pass the model whose
+     * tags these are, e.g. Post::class.
      *
      * @param  array<string, string|null>  $colors
+     * @param  class-string<Model>|null  $type
      */
-    public function setColors(array $colors): void
+    public function setColors(array $colors, ?string $type = null): void
     {
         foreach ($colors as $name => $color) {
-            static::tagModel()::where('name', Tag::normalizeName((string) $name))->first()?->update(['color' => $color]);
+            $this->findByName((string) $name, $type)?->update(['color' => $color]);
         }
     }
 
@@ -220,31 +205,33 @@ class TagManager
     }
 
     /**
-     * Set tag icons by name, e.g. ['file' => 'star']. A null icon removes
-     * the tag's icon. Advanced mode only.
+     * Set tag icons by name, e.g. ['file' => 'star']. A null icon removes the tag's icon.
+     * Advanced mode only, so pass the model whose tags these are, e.g. Post::class.
      *
      * @param  array<string, string|null>  $icons
+     * @param  class-string<Model>|null  $type
      */
-    public function setIcons(array $icons): void
+    public function setIcons(array $icons, ?string $type = null): void
     {
         foreach ($icons as $name => $icon) {
-            static::tagModel()::where('name', Tag::normalizeName((string) $name))->first()?->update(['icon' => $icon]);
+            $this->findByName((string) $name, $type)?->update(['icon' => $icon]);
         }
     }
 
     /**
-     * Set tag descriptions by name, e.g. ['pottery' => 'Ceramic fragments']. A blank or
-     * null description removes the tag's description.
+     * Set tag descriptions by name, e.g. ['pottery' => 'Ceramic fragments']. A blank or null
+     * description removes the tag's description. In advanced mode, pass the model whose tags
+     * these are, e.g. Post::class.
      *
      * @param  array<string, string|null>  $descriptions
+     * @param  class-string<Model>|null  $type
      */
-    public function setDescriptions(array $descriptions): void
+    public function setDescriptions(array $descriptions, ?string $type = null): void
     {
         foreach ($descriptions as $name => $description) {
             $description = trim((string) $description);
 
-            static::tagModel()::where('name', Tag::normalizeName((string) $name))->first()
-                ?->update(['description' => $description === '' ? null : $description]);
+            $this->findByName((string) $name, $type)?->update(['description' => $description === '' ? null : $description]);
         }
     }
 
@@ -266,28 +253,11 @@ class TagManager
     }
 
     /**
-     * Set the model type tags were created for, by name, e.g. ['pottery' => 'App\Models\Post'].
-     * Types must be one of models(). Does nothing if the tags table has no model_type column.
-     *
-     * @param  array<string, string|null>  $types
+     * A tag by name, among the given model's tags in advanced mode.
      */
-    public function setModelTypes(array $types): void
+    protected function findByName(string $name, ?string $type): ?Tag
     {
-        if (! static::tagModel()::recordsModelType()) {
-            return;
-        }
-
-        $allowed = array_column($this->models(), 'value');
-
-        foreach ($types as $type) {
-            if ($type !== null && ! in_array($type, $allowed, true)) {
-                throw new InvalidArgumentException("[{$type}] is not one of the tags.models config option's models.");
-            }
-        }
-
-        foreach ($types as $name => $type) {
-            static::tagModel()::where('name', Tag::normalizeName((string) $name))->first()?->update(['model_type' => $type]);
-        }
+        return static::tagModel()::query()->forModel($type)->where('name', Tag::normalizeName($name))->first();
     }
 
     /**

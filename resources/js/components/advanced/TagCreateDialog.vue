@@ -18,12 +18,16 @@ const open = defineModel('open', { type: Boolean, default: false });
 const props = defineProps({
     // The name to start with, e.g. what the user typed.
     initialName: { type: String, default: '' },
-    // The model type to start with, e.g. the page's model. Without it, the first of models.
+    // The model type to start with, e.g. the page's model. Without it, or if it isn't one of
+    // models, the popup starts on the first model.
     initialModel: { type: String, default: null },
-    // Tag names that already exist, so they aren't created again.
-    existing: { type: Array, default: () => [] },
+    // Tag names that already exist, so they aren't created again: a list, or names by model
+    // type, like { 'App\Models\Post': ['pottery'] }, to check the model the popup is set to.
+    existing: { type: [Array, Object], default: () => [] },
     // The models to choose from, from TagManager::models(). Without them, the model field is hidden.
     models: { type: Array, default: () => [] },
+    // Show the model field but don't let it change, e.g. in TagInput, where new tags are for the page's model.
+    lockModel: { type: Boolean, default: false },
     // The icon names users can pick, from TagManager::icons().
     availableIcons: { type: Array, default: null },
     maxLength: { type: Number, default: 32 },
@@ -69,8 +73,10 @@ function submit() {
         return;
     }
 
-    if (props.existing.includes(name)) {
-        error.value = `A tag named "${name}" already exists. Add it from the tag list instead.`;
+    const taken = Array.isArray(props.existing) ? props.existing : (props.existing[form.value.modelType] ?? []);
+
+    if (taken.includes(name)) {
+        error.value = `A tag named "${name}" already exists${props.models.length > 0 ? ' for this model' : ''}.`;
 
         return;
     }
@@ -135,7 +141,8 @@ function submit() {
                         <select
                             :id="`${id}-model`"
                             v-model="form.modelType"
-                            class="w-full rounded-md border border-input bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50"
+                            :disabled="lockModel"
+                            class="w-full rounded-md border border-input bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             <option v-for="model in models" :key="model.value" :value="model.value">
                                 {{ model.label }}
