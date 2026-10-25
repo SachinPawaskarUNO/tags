@@ -19,6 +19,7 @@ use InvalidArgumentException;
  * @property string|null $icon
  * @property string|null $model_type The model the tag belongs to. Required in advanced mode.
  * @property string|null $description
+ * @property int|null $team_id The team the tag belongs to. Required when tags.teams is on.
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -42,6 +43,7 @@ class Tag extends Model
         'icon',
         'model_type',
         'description',
+        'team_id',
     ];
 
     /**
@@ -51,7 +53,7 @@ class Tag extends Model
 
     /**
      * Refuse to save a tag with a blank name, a description that's too long, a color or icon
-     * that isn't valid, or in advanced mode, no model type.
+     * that isn't valid, in advanced mode, no model type, or with teams on, no team.
      */
     protected static function booted(): void
     {
@@ -75,6 +77,10 @@ class Tag extends Model
             if (blank($tag->model_type) && static::recordsModelType()) {
                 throw new InvalidArgumentException('A tag needs a model type in advanced mode.');
             }
+
+            if (blank($tag->team_id) && static::recordsTeam()) {
+                throw new InvalidArgumentException('A tag needs a team when tags.teams is on.');
+            }
         });
     }
 
@@ -88,6 +94,19 @@ class Tag extends Model
     {
         if ($type !== null && static::recordsModelType()) {
             $query->where('model_type', static::morphClassFor($type));
+        }
+    }
+
+    /**
+     * Limit a query to one team's tags, when teams are on. With teams off, or without a team,
+     * every tag.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeForTeam(Builder $query, int|string|null $team): void
+    {
+        if ($team !== null && static::recordsTeam()) {
+            $query->where('team_id', $team);
         }
     }
 
@@ -164,21 +183,30 @@ class Tag extends Model
 
     /**
      * Find a tag by name, or create it if it doesn't exist. In advanced mode, tags belong to
-     * a model, so this finds or creates $for's own tag, and $for is required.
+     * a model, and with teams on, to a team, so this finds or creates $for's own tag, and $for
+     * is required.
      */
     public static function findOrCreateByName(string $name, ?Model $for = null): self
     {
-        $name = static::normalizeName($name);
+        $attributes = ['name' => static::normalizeName($name)];
 
-        if (! static::recordsModelType()) {
-            return static::firstOrCreate(['name' => $name]);
+        if (! static::recordsModelType() && ! static::recordsTeam()) {
+            return static::firstOrCreate($attributes);
         }
 
         if ($for === null) {
-            throw new InvalidArgumentException('In advanced mode, a tag belongs to a model, so pass the model it\'s for.');
+            throw new InvalidArgumentException('In advanced mode or with teams on, a tag belongs to a model, so pass the model it\'s for.');
         }
 
-        return static::firstOrCreate(['name' => $name, 'model_type' => $for->getMorphClass()]);
+        if (static::recordsModelType()) {
+            $attributes['model_type'] = $for->getMorphClass();
+        }
+
+        if (static::recordsTeam()) {
+            $attributes['team_id'] = method_exists($for, 'tagTeamId') ? $for->tagTeamId() : null;
+        }
+
+        return static::firstOrCreate($attributes);
     }
 
     /**
@@ -189,6 +217,16 @@ class Tag extends Model
     {
         return config('tags.mode') === 'advanced'
             && Schema::hasColumn(static::query()->getModel()->getTable(), 'model_type');
+    }
+
+    /**
+     * Whether new tags record their team: when tags.teams is on and the tags table has the
+     * team_id column. The column is missing if the tables were created with teams off.
+     */
+    public static function recordsTeam(): bool
+    {
+        return (bool) config('tags.teams')
+            && Schema::hasColumn(static::query()->getModel()->getTable(), 'team_id');
     }
 
     /**

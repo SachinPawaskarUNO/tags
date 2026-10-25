@@ -76,15 +76,15 @@ class TagManager
      * Tag names for TagInput's suggestions. In simple mode, every tag's name, shown as buttons.
      * In advanced mode, pass the page's model, e.g. Post::class, for that model's tags, most-used
      * first, so TagInput can show the most-used ones before the user types. Without a model,
-     * every tag, grouped by its model.
+     * every tag, grouped by its model. With teams on, pass the team, for only that team's tags.
      *
      * @param  class-string<Model>|null  $type
      * @return list<string>|array<string, list<string>>
      */
-    public function suggestions(?string $type = null): array
+    public function suggestions(?string $type = null, int|string|null $team = null): array
     {
         if (config('tags.mode') !== 'advanced') {
-            return $this->names();
+            return $this->names($team);
         }
 
         // Without the model_type column, fall back to where tags are attached.
@@ -95,13 +95,14 @@ class TagManager
         }
 
         if ($type === null) {
-            return $this->namesByModelType();
+            return $this->namesByModelType($team);
         }
 
         $table = static::tagModel()::query()->getModel()->getTable();
 
         return array_values(static::tagModel()::query()
             ->forModel($type)
+            ->forTeam($team)
             ->orderByDesc(DB::table('taggables')->selectRaw('count(*)')->whereColumn('taggables.tag_id', "{$table}.id"))
             ->orderBy('name')
             ->pluck('name')
@@ -109,28 +110,29 @@ class TagManager
     }
 
     /**
-     * Every tag's name.
+     * Every tag's name, or with teams on, a team's tag names.
      *
      * @return list<string>
      */
-    public function names(): array
+    public function names(int|string|null $team = null): array
     {
-        return array_values(static::tagModel()::orderBy('name')->pluck('name')->all());
+        return array_values(static::tagModel()::query()->forTeam($team)->orderBy('name')->pluck('name')->all());
     }
 
     /**
      * Tags' color, icon, and description, by name. Pass it to the advanced TagInput's details,
      * so existing tags show their color and icon as soon as they're picked. In advanced mode,
      * pass the page's model, e.g. Post::class, since other models can have tags with the same names.
+     * With teams on, pass the team too, since other teams can as well.
      *
      * @param  class-string<Model>|null  $type
      * @return array<string, array{color: string|null, icon: string|null, description: string|null}>
      */
-    public function details(?string $type = null): array
+    public function details(?string $type = null, int|string|null $team = null): array
     {
         $details = [];
 
-        foreach (static::tagModel()::query()->forModel($type)->orderBy('name')->get() as $tag) {
+        foreach (static::tagModel()::query()->forModel($type)->forTeam($team)->orderBy('name')->get() as $tag) {
             $details[$tag->name] = [
                 'color' => $tag->color,
                 'icon' => $tag->icon,
@@ -142,15 +144,15 @@ class TagManager
     }
 
     /**
-     * Every tag's name, grouped by the model it belongs to.
+     * Every tag's name, or with teams on, a team's tag names, grouped by the model it belongs to.
      *
      * @return array<string, list<string>>
      */
-    public function namesByModelType(): array
+    public function namesByModelType(int|string|null $team = null): array
     {
         $groups = [];
 
-        $tags = static::tagModel()::query()->whereNotNull('model_type')->orderBy('model_type')->orderBy('name')->get(['name', 'model_type']);
+        $tags = static::tagModel()::query()->forTeam($team)->whereNotNull('model_type')->orderBy('model_type')->orderBy('name')->get(['name', 'model_type']);
 
         foreach ($tags as $tag) {
             $groups[class_basename(Relation::getMorphedModel((string) $tag->model_type) ?? (string) $tag->model_type)][] = $tag->name;
@@ -189,15 +191,15 @@ class TagManager
     /**
      * Set tag colors by name, e.g. ['pottery' => 'red']. A null color resets the tag to the
      * default. Names that aren't tags yet are skipped. In advanced mode, pass the model whose
-     * tags these are, e.g. Post::class.
+     * tags these are, e.g. Post::class, and with teams on, the team.
      *
      * @param  array<string, string|null>  $colors
      * @param  class-string<Model>|null  $type
      */
-    public function setColors(array $colors, ?string $type = null): void
+    public function setColors(array $colors, ?string $type = null, int|string|null $team = null): void
     {
         foreach ($colors as $name => $color) {
-            $this->findByName((string) $name, $type)?->update(['color' => $color]);
+            $this->findByName((string) $name, $type, $team)?->update(['color' => $color]);
         }
     }
 
@@ -214,32 +216,33 @@ class TagManager
 
     /**
      * Set tag icons by name, e.g. ['file' => 'star']. A null icon removes the tag's icon.
-     * Advanced mode only, so pass the model whose tags these are, e.g. Post::class.
+     * Advanced mode only, so pass the model whose tags these are, e.g. Post::class, and with
+     * teams on, the team.
      *
      * @param  array<string, string|null>  $icons
      * @param  class-string<Model>|null  $type
      */
-    public function setIcons(array $icons, ?string $type = null): void
+    public function setIcons(array $icons, ?string $type = null, int|string|null $team = null): void
     {
         foreach ($icons as $name => $icon) {
-            $this->findByName((string) $name, $type)?->update(['icon' => $icon]);
+            $this->findByName((string) $name, $type, $team)?->update(['icon' => $icon]);
         }
     }
 
     /**
      * Set tag descriptions by name, e.g. ['pottery' => 'Ceramic fragments']. A blank or null
      * description removes the tag's description. In advanced mode, pass the model whose tags
-     * these are, e.g. Post::class.
+     * these are, e.g. Post::class, and with teams on, the team.
      *
      * @param  array<string, string|null>  $descriptions
      * @param  class-string<Model>|null  $type
      */
-    public function setDescriptions(array $descriptions, ?string $type = null): void
+    public function setDescriptions(array $descriptions, ?string $type = null, int|string|null $team = null): void
     {
         foreach ($descriptions as $name => $description) {
             $description = trim((string) $description);
 
-            $this->findByName((string) $name, $type)?->update(['description' => $description === '' ? null : $description]);
+            $this->findByName((string) $name, $type, $team)?->update(['description' => $description === '' ? null : $description]);
         }
     }
 
@@ -261,11 +264,11 @@ class TagManager
     }
 
     /**
-     * A tag by name, among the given model's tags in advanced mode.
+     * A tag by name, among the given model's tags in advanced mode, and the given team's with teams on.
      */
-    protected function findByName(string $name, ?string $type): ?Tag
+    protected function findByName(string $name, ?string $type, int|string|null $team = null): ?Tag
     {
-        return static::tagModel()::query()->forModel($type)->where('name', Tag::normalizeName($name))->first();
+        return static::tagModel()::query()->forModel($type)->forTeam($team)->where('name', Tag::normalizeName($name))->first();
     }
 
     /**

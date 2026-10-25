@@ -15,6 +15,19 @@ return [
     'mode' => 'simple',
 
     /*
+     * Give each tag a team, so each team has its own tags and two teams can each have a tag
+     * with the same name. Set this before running the migration: it adds the team_id column.
+     */
+    'teams' => false,
+
+    /*
+     * With teams on, the attribute on tagged records that holds their team, e.g. a Case's team_id.
+     * A new tag gets the team of the record it's first attached to. For a model whose team is
+     * somewhere else, override tagTeamId() on that model.
+     */
+    'team_column' => 'team_id',
+
+    /*
      * The tag model. To add behavior, extend spawaskar\Tags\Models\Tag and set your class here.
      */
     'model' => Tag::class,
@@ -47,6 +60,10 @@ return [
 
         // The Inertia page component to render, e.g. resources/js/pages/tags/Manager.vue.
         'component' => 'tags/Manager',
+
+        // With teams on, the attribute on the logged-in user that holds their current team.
+        // The page only shows, creates, and deletes that team's tags.
+        'team' => 'current_team_id',
     ],
 
 ];

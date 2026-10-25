@@ -32,6 +32,18 @@ trait HasTags
     }
 
     /**
+     * The team this model's new tags belong to, when tags.teams is on: the attribute named by
+     * the tags.team_column config option. Override it for a model whose team is somewhere else.
+     */
+    public function tagTeamId(): int|string|null
+    {
+        /** @var int|string|null $team */
+        $team = $this->getAttribute(config('tags.team_column', 'team_id'));
+
+        return $team;
+    }
+
+    /**
      * Attach tags by name, creating any that don't exist. In advanced mode, these are this
      * model's own tags. Names are trimmed and lowercased.
      *

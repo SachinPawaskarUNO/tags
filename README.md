@@ -424,6 +424,54 @@ If your app sets a default layout for every page (in `app.ts` or `app.js`), skip
 
 The page isn't for one model, so its New tag popup lets users choose the tag's model, from the `models` config option. Every tag needs a model, so list at least one there to create tags on this page.
 
+#### Teams
+
+If your app has teams, each team can have its own tags. Two teams can each have a tag with the same name, with its own color, icon, and description, and neither sees the other's. Turn teams on in the config **before running the migration**, since it adds a `team_id` column to the `tags` table:
+
+```php
+// config/tags.php
+'teams' => true,
+```
+
+Names are then unique per team (and per model, in advanced mode). The column isn't linked to your teams table, since the package doesn't know its name. To link it, add `->constrained()` to the `team_id` column in your published migration.
+
+A new tag gets the team of the record it's first attached to, from the record's `team_id` attribute. If your records keep their team in another attribute, set `team_column`1:
+
+```php
+'team_column' => 'organization_id',
+```
+
+For a model whose team is somewhere else, e.g. on a related model, override `tagTeamId()` on that model:
+
+```php
+public function tagTeamId(): ?int
+{
+    return $this->project->team_id;
+}
+```
+
+Pass the team to `TagManager::suggestions()`, `TagManager::details()`, and the setters, so users only see and change their own team's tags:
+
+```php
+'suggestions' => TagManager::suggestions(Post::class, $team->id),
+'details' => TagManager::details(Post::class, $team->id),
+
+TagManager::setColors($request->input('colors', []), Post::class, $team->id);
+```
+
+Without a team, these use every team's tags, so `setColors()` could change another team's tag with the same name.
+
+The tag manager page only shows, creates, and deletes the logged-in user's current team's tags, from their `current_team_id` attribute. If your users keep their current team in another attribute, set it in `manager.team`:
+
+```php
+'manager' => [
+    // ...
+    'team' => 'current_team_id',
+],
+```
+
+A user without a current team can't open the page.
+
 
 ## Changelog
 

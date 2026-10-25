@@ -21,9 +21,9 @@ use spawaskar\Tags\TagManager;
 class TagManagerController
 {
     /**
-     * Show every tag, with how many models use it.
+     * Show every tag, or with teams on, the user's team's tags, with how many models use each.
      */
-    public function index(TagManager $manager): Response
+    public function index(Request $request, TagManager $manager): Response
     {
         if (! class_exists(Inertia::class)) {
             throw new RuntimeException('The tag manager page needs Inertia. Run: composer require inertiajs/inertia-laravel');
@@ -33,6 +33,7 @@ class TagManagerController
         $table = (new $model)->getTable();
 
         $tags = $model::query()
+            ->forTeam($this->team($request))
             ->addSelect(['uses' => DB::table('taggables')->selectRaw('count(*)')->whereColumn('taggables.tag_id', "{$table}.id")])
             ->orderBy('name')
             ->get()
@@ -67,14 +68,20 @@ class TagManagerController
     public function store(Request $request, TagManager $manager): RedirectResponse
     {
         $model = TagManager::tagModel();
+        $team = $this->team($request);
 
         $request->merge(['name' => Tag::normalizeName((string) $request->string('name'))]);
 
-        // In advanced mode, names only need to be unique within the tag's model.
+        // In advanced mode, names only need to be unique within the tag's model, and with teams
+        // on, within the team.
         $unique = Rule::unique((new $model)->getTable(), 'name');
 
         if ($model::recordsModelType()) {
             $unique->where('model_type', (string) $request->string('modelType'));
+        }
+
+        if ($team !== null) {
+            $unique->where('team_id', $team);
         }
 
         /** @var array{name: string, description?: string|null, color?: string|null, icon?: string|null, modelType?: string|null} $validated */
@@ -111,17 +118,22 @@ class TagManagerController
             $attributes['model_type'] = $validated['modelType'] ?? null;
         }
 
+        if ($team !== null) {
+            $attributes['team_id'] = $team;
+        }
+
         $model::query()->create($attributes);
 
         return redirect()->route('tags.manager.index');
     }
 
     /**
-     * Delete a tag, removing it from every model it's on.
+     * Delete a tag, removing it from every model it's on. With teams on, only the user's team's
+     * tags can be deleted: another team's tag is a 404.
      */
-    public function destroy(int $tag): RedirectResponse
+    public function destroy(Request $request, int $tag): RedirectResponse
     {
-        $found = TagManager::tagModel()::query()->findOrFail($tag);
+        $found = TagManager::tagModel()::query()->forTeam($this->team($request))->findOrFail($tag);
 
         DB::transaction(function () use ($found): void {
             DB::table('taggables')->where('tag_id', $found->id)->delete();
@@ -129,5 +141,23 @@ class TagManagerController
         });
 
         return redirect()->route('tags.manager.index');
+    }
+
+    /**
+     * With teams on, the logged-in user's current team, from the attribute named by the
+     * tags.manager.team config option. A user without a team can't use the page, rather than
+     * seeing every team's tags. With teams off, null.
+     */
+    protected function team(Request $request): int|string|null
+    {
+        if (! TagManager::tagModel()::recordsTeam()) {
+            return null;
+        }
+
+        $team = data_get($request->user(), (string) config('tags.manager.team', 'current_team_id'));
+
+        abort_unless(is_int($team) || is_string($team), 403, 'Choose a team to manage its tags.');
+
+        return $team;
     }
 }

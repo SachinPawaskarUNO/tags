@@ -253,3 +253,39 @@ it('only accepts the icons listed in the config', function () {
         ->and(Tag::isValidIcon('star'))->toBeTrue()
         ->and(Tag::isValidIcon('heart'))->toBeFalse();
 });
+
+it('gives a new tag the team of the model it is attached to', function () {
+    // Arrange
+    useTeams();
+
+    // Act
+    TestModel::create(['name' => 'Example', 'team_id' => 5])->attachTags('tag1');
+
+    // Assert
+    expect(Tag::first()->team_id)->toBe(5);
+});
+
+it('keeps each team\'s tags separate, even with the same name', function () {
+    // Arrange
+    useTeams();
+    $first = TestModel::create(['name' => 'First', 'team_id' => 1]);
+    $second = TestModel::create(['name' => 'Second', 'team_id' => 2]);
+
+    // Act
+    $first->attachTags('urgent');
+    $second->attachTags('urgent');
+
+    // Assert
+    expect(Tag::where('name', 'urgent')->count())->toBe(2)
+        ->and($first->tags()->first()->team_id)->toBe(1)
+        ->and($second->tags()->first()->team_id)->toBe(2);
+});
+
+it('refuses to create a tag without a team when teams are on', function () {
+    // Arrange
+    useTeams();
+
+    // Assert
+    expect(fn () => TestModel::create(['name' => 'No team'])->attachTags('tag1'))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => Tag::findOrCreateByName('tag1'))->toThrow(InvalidArgumentException::class);
+});
