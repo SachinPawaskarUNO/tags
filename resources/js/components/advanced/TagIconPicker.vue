@@ -11,7 +11,7 @@ import { loadTagIcons, pickableIcons, tagIcon } from '../../tagIcons.js';
 const icon = defineModel({ type: String, default: null });
 
 const props = defineProps({
-    // The icon names users can pick, from TagManager::icons(). Without it, every Lucide icon.
+    // The icon names users can pick, from Tag::icons(). Without it, every Lucide icon.
     availableIcons: { type: Array, default: null },
 });
 

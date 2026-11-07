@@ -7,7 +7,6 @@ namespace spawaskar\Tags\Concerns;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use spawaskar\Tags\Models\Tag;
-use spawaskar\Tags\TagManager;
 
 // Add tagging to any Eloquent model.
 trait HasTags
@@ -28,7 +27,7 @@ trait HasTags
     /** @return MorphToMany<Tag, $this> */
     public function tags(): MorphToMany
     {
-        return $this->morphToMany(TagManager::tagModel(), 'taggable');
+        return $this->morphToMany(Tag::modelClass(), 'taggable');
     }
 
     /**
@@ -130,7 +129,7 @@ trait HasTags
     {
         $names = array_filter(array_map(Tag::normalizeName(...), $names), fn (string $name) => $name !== '');
 
-        $model = TagManager::tagModel();
+        $model = Tag::modelClass();
 
         return array_map(fn (string $name): int => $model::findOrCreateByName($name, $this)->id, $names);
     }

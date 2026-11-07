@@ -1,7 +1,9 @@
 import { shallowRef } from 'vue';
 
-// Every Lucide icon (https://lucide.dev/icons), by component name, e.g. MapPin. They're loaded
-// the first time an icon is shown, so pages without tag icons don't download them.
+// Every Lucide icon (https://lucide.dev/icons), by component name, e.g. MapPin. An icon's name
+// isn't known until a tag uses it, so they're all needed. TagInputAdvanced and TagIconPicker also
+// import from Lucide directly, so bundlers usually put these in the main file, not a separate
+// download.
 const lucide = shallowRef(null);
 let loading = null;
 
@@ -42,7 +44,7 @@ export function tagIcon(name) {
 // Icon components by name, for templates and TagList's icons prop, e.g. tagIcons['map-pin'].
 export const tagIcons = new Proxy({}, { get: (target, name) => tagIcon(name) ?? undefined });
 
-// The [name, component] pairs users can pick: the icons in `available` (from TagManager::icons()),
+// The [name, component] pairs users can pick: the icons in `available` (from Tag::icons()),
 // or without it, every Lucide icon once they've loaded.
 export function pickableIcons(available = null) {
     if (available !== null) {

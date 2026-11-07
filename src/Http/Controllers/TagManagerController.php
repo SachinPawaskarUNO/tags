@@ -15,7 +15,6 @@ use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
 use spawaskar\Tags\Models\Tag;
-use spawaskar\Tags\TagManager;
 
 // The tag manager page: every tag, with the New tag popup and a delete button for each.
 class TagManagerController
@@ -23,13 +22,13 @@ class TagManagerController
     /**
      * Show every tag, or with teams on, the user's team's tags, with how many models use each.
      */
-    public function index(Request $request, TagManager $manager): Response
+    public function index(Request $request): Response
     {
         if (! class_exists(Inertia::class)) {
             throw new RuntimeException('The tag manager page needs Inertia. Run: composer require inertiajs/inertia-laravel');
         }
 
-        $model = TagManager::tagModel();
+        $model = Tag::modelClass();
         $table = (new $model)->getTable();
 
         $tags = $model::query()
@@ -55,8 +54,8 @@ class TagManagerController
         return Inertia::render((string) config('tags.manager.component', 'tags/Manager'), [
             'tags' => $tags,
             'existing' => $existing,
-            'models' => $manager->models(),
-            'icons' => $manager->icons(),
+            'models' => $model::models(),
+            'icons' => $model::icons(),
             'storeUrl' => route('tags.manager.store'),
             'maxDescriptionLength' => Tag::MAX_DESCRIPTION_LENGTH,
         ]);
@@ -65,9 +64,9 @@ class TagManagerController
     /**
      * Create a tag from the New tag popup, without attaching it to anything.
      */
-    public function store(Request $request, TagManager $manager): RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
-        $model = TagManager::tagModel();
+        $model = Tag::modelClass();
         $team = $this->team($request);
 
         $request->merge(['name' => Tag::normalizeName((string) $request->string('name'))]);
@@ -101,7 +100,7 @@ class TagManagerController
             'modelType' => [
                 $model::recordsModelType() ? 'required' : 'nullable',
                 'string',
-                Rule::in(array_column($manager->models(), 'value')),
+                Rule::in(array_column($model::models(), 'value')),
             ],
         ]);
 
@@ -133,7 +132,7 @@ class TagManagerController
      */
     public function destroy(Request $request, int $tag): RedirectResponse
     {
-        $found = TagManager::tagModel()::query()->forTeam($this->team($request))->findOrFail($tag);
+        $found = Tag::modelClass()::query()->forTeam($this->team($request))->findOrFail($tag);
 
         DB::transaction(function () use ($found): void {
             DB::table('taggables')->where('tag_id', $found->id)->delete();
@@ -150,7 +149,7 @@ class TagManagerController
      */
     protected function team(Request $request): int|string|null
     {
-        if (! TagManager::tagModel()::recordsTeam()) {
+        if (! Tag::modelClass()::recordsTeam()) {
             return null;
         }
 

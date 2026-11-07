@@ -1,0 +1,61 @@
+/*
+ * Default colors for the advanced components, for apps whose Tailwind theme doesn't define them.
+ * An app's own values for these names win, in light and dark mode, so importing this keeps the
+ * app's styling. Dark mode follows the app's dark variant. Needs Tailwind 4. Import it after
+ * Tailwind, in the app's CSS file:
+ *
+ * @import 'tailwindcss';
+ * @import '../js/vendor/tags/tags.css';
+ */
+@theme default inline {
+    --color-background: var(--tags-background);
+    --color-foreground: var(--tags-foreground);
+    --color-primary: var(--tags-primary);
+    --color-primary-foreground: var(--tags-primary-foreground);
+    --color-popover: var(--tags-popover);
+    --color-popover-foreground: var(--tags-popover-foreground);
+    --color-muted: var(--tags-muted);
+    --color-muted-foreground: var(--tags-muted-foreground);
+    --color-accent: var(--tags-accent);
+    --color-accent-foreground: var(--tags-accent-foreground);
+    --color-destructive: var(--tags-destructive);
+    --color-input: var(--tags-input);
+    --color-ring: var(--tags-ring);
+}
+
+@layer base {
+    :root {
+        --tags-background: #ffffff;
+        --tags-foreground: #0a0a0a;
+        --tags-primary: #171717;
+        --tags-primary-foreground: #fafafa;
+        --tags-popover: #ffffff;
+        --tags-popover-foreground: #0a0a0a;
+        --tags-muted: #f5f5f5;
+        --tags-muted-foreground: #737373;
+        --tags-accent: #f5f5f5;
+        --tags-accent-foreground: #171717;
+        --tags-destructive: #dc2626;
+        --tags-input: #e5e5e5;
+        --tags-ring: #a3a3a3;
+    }
+
+    /* On every element, since an app's dark variant can match only inside a .dark element. */
+    * {
+        @variant dark {
+            --tags-background: #0a0a0a;
+            --tags-foreground: #fafafa;
+            --tags-primary: #e5e5e5;
+            --tags-primary-foreground: #171717;
+            --tags-popover: #171717;
+            --tags-popover-foreground: #fafafa;
+            --tags-muted: #262626;
+            --tags-muted-foreground: #a1a1a1;
+            --tags-accent: #262626;
+            --tags-accent-foreground: #fafafa;
+            --tags-destructive: #dc2626;
+            --tags-input: #404040;
+            --tags-ring: #737373;
+        }
+    }
+}

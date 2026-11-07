@@ -32,9 +32,11 @@ it('publishes the vue components', function () {
 
     // Assert
     expect($paths)->toHaveCount(1)
-        ->and(array_key_first($paths).'/components/simple/TagInput.vue')->toBeFile()
-        ->and(array_key_first($paths).'/components/advanced/TagInput.vue')->toBeFile()
+        ->and(array_key_first($paths).'/components/simple/TagInputSimple.vue')->toBeFile()
+        ->and(array_key_first($paths).'/components/advanced/TagInputAdvanced.vue')->toBeFile()
         ->and(array_key_first($paths).'/components/advanced/TagManagerPage.vue')->toBeFile()
         ->and(array_key_first($paths).'/components/TagList.vue')->toBeFile()
+        ->and(array_key_first($paths).'/components/TagFilter.vue')->toBeFile()
+        ->and(array_key_first($paths).'/tags.css')->toBeFile()
         ->and(array_values($paths)[0])->toBe(resource_path('js/vendor/tags'));
 });

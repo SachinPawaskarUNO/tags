@@ -24,9 +24,9 @@ const props = defineProps({
     tags: { type: Array, default: () => [] },
     // Tag names by model type, so the New tag popup can check names for the model it's set to.
     existing: { type: Object, default: () => ({}) },
-    // The models to choose from in the New tag popup, from TagManager::models().
+    // The models to choose from in the New tag popup, from Tag::models().
     models: { type: Array, default: () => [] },
-    // The icon names users can pick, from TagManager::icons().
+    // The icon names users can pick, from Tag::icons().
     icons: { type: Array, default: null },
     // Where the New tag popup's tags are saved.
     storeUrl: { type: String, required: true },

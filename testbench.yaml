@@ -1,9 +1,11 @@
 laravel: '@testbench'
 
 providers:
-  # - Workbench\App\Providers\WorkbenchServiceProvider
+  - spawaskar\Tags\TagsServiceProvider
+  - Workbench\App\Providers\WorkbenchServiceProvider
 
 migrations:
+  - database/migrations
   - workbench/database/migrations
 
 seeders:
@@ -19,7 +21,7 @@ workbench:
     commands: true
     components: false
     factories: true
-    views: false
+    views: true
   build:
     - asset-publish
     - create-sqlite-db

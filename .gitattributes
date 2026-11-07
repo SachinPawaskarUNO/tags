@@ -10,6 +10,9 @@
 /pint.json          export-ignore
 /testbench.yaml     export-ignore
 /workbench          export-ignore
+/package.json       export-ignore
+/package-lock.json  export-ignore
+/vite.config.js     export-ignore
 /.claude            export-ignore
 /.agents            export-ignore
 /CLAUDE.md          export-ignore

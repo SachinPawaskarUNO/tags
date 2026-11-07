@@ -20,7 +20,26 @@ You can install the package via Composer:
 composer require spawaskar/tags
 ```
 
-You may publish all of the package's resources at once:
+Then run the install command, which asks how you'll use tags, saves your answers in `config/tags.php`, and sets up the tables:
+
+```bash
+php artisan tags:install
+```
+
+It always asks about the mode and team integration. The other questions depend on your answers:
+
+- With teams on, it asks which attribute holds a tagged record's team.
+- In advanced mode, it asks about your models, your icons, and whether to turn on the tag manager page.
+- With the tag manager page on, it asks for the page's URL, middleware, and Inertia component.
+- With teams and the tag manager page on, it asks which attribute holds the logged-in user's team.
+
+Each question starts from the setting's current value, so you can press Enter to keep it. Settings it doesn't ask about stay as they are, and you can run the command again to change your answers.
+
+Set the mode and teams before creating the tables, since they choose the table's columns. If the tables don't exist, the command publishes the migration and offers to run it. It only runs the tags migration, not your app's other pending migrations. If the tables already exist and don't match your answers, the command warns you, but doesn't change them.
+
+Afterward, add the `HasTags` trait to the models you want to tag.
+
+If you'd rather set things up by hand, you may publish all of the package's resources at once:
 
 ```bash
 php artisan vendor:publish --tag="tags"
@@ -95,15 +114,17 @@ Post::withAllTags(['tag1', 'tag3'])->get();
 Find tags that aren't attached to any model:
 
 ```php
-use spawaskar\Tags\Facades\TagManager;
+use spawaskar\Tags\Facades\Tag;
 
-TagManager::unused();
+Tag::unused();
 ```
+
+The `Tag` facade calls the tag model set by the `tags.model` config option. The same methods are also static methods on `spawaskar\Tags\Models\Tag`. Facades don't pass constants through, so constants like `Tag::COLORS` come from the model.
 
 Give tags a color from a fixed palette (`gray`, `red`, `orange`, `yellow`, `green`, `blue`, `purple`). Tags without a color show as gray, and `null` resets a tag to gray:
 
 ```php
-TagManager::setColors(['tag1' => 'red', 'tag2' => null]);
+Tag::setColors(['tag1' => 'red', 'tag2' => null]);
 ```
 
 A color belongs to the tag, so it's the same everywhere the tag is used. Colors outside the palette throw an `InvalidArgumentException`; validate input with `Rule::in(Tag::COLORS)`.
@@ -123,7 +144,7 @@ There's no Blade tag input. Submit the tags from your own form as an array (for 
 If your pages are built with Vue, the package includes Vue 3 components (Vue 3.4 or later). After publishing them with `--tag="tags-vue"`, import the ones you need from your app:
 
 ```js
-import TagInput from '@/vendor/tags/components/simple/TagInput.vue';
+import TagInputSimple from '@/vendor/tags/components/simple/TagInputSimple.vue';
 import TagList from '@/vendor/tags/components/TagList.vue';
 ```
 
@@ -139,19 +160,19 @@ They're styled with Tailwind using shadcn-style theme colors (`bg-muted`, `borde
 
 #### Editing tags
 
-`TagInput` lets users type a tag and press Enter or comma to add it, click × to remove it, or click one of the suggested tags. Pass the tags with `v-model` and the tag names to suggest with `suggestions`:
+`TagInputSimple` lets users type a tag and press Enter or comma to add it, click × to remove it, or click one of the suggested tags. Pass the tags with `v-model` and the tag names to suggest with `suggestions`:
 
 ```php
-use spawaskar\Tags\Facades\TagManager;
+use spawaskar\Tags\Facades\Tag;
 
 return view('posts.edit', [
     'post' => $post,
-    'suggestions' => TagManager::suggestions(),
+    'suggestions' => Tag::suggestions(),
 ]);
 ```
 
 ```vue
-<TagInput v-model="form.tags" :suggestions="suggestions" />
+<TagInputSimple v-model="form.tags" :suggestions="suggestions" />
 ```
 
 In simple mode, the suggestions are every tag's name, shown as buttons under the input. In advanced mode, they're the tags created for a model, shown in their colors in a dropdown under the input and filtered as the user types; see [Creating tags](#creating-tags).
@@ -162,13 +183,13 @@ Attributes like `id` and `aria-label` are passed to the text input, so a label c
 
 ```vue
 <label for="tags">Tags</label>
-<TagInput id="tags" v-model="form.tags" :max-length="30" />
+<TagInputSimple id="tags" v-model="form.tags" :max-length="30" />
 ```
 
 In a regular (non-JavaScript) form submit, set `name` and the component renders hidden inputs for the tags:
 
 ```vue
-<TagInput v-model="tags" name="tags" :suggestions="suggestions" />
+<TagInputSimple v-model="tags" name="tags" :suggestions="suggestions" />
 ```
 
 The component doesn't save anything itself. Save the tags in your own controller:
@@ -177,9 +198,64 @@ The component doesn't save anything itself. Save the tags in your own controller
 $post->syncTags($request->input('tags', []));
 ```
 
+#### Filtering a list by tag
+
+`TagFilter` is a dropdown of checkboxes to put next to a search bar. It works in both modes. Pass it the page's model's tags, and their colors and icons with `details`:
+
+```php
+use spawaskar\Tags\Facades\Tag;
+
+$filters = $request->validate([
+    'search' => 'nullable|string',
+    'tags' => 'array',
+    'tags.*' => 'string',
+]);
+
+return Inertia::render('Posts/Index', [
+    'posts' => Post::with('tags')
+        ->when($filters['search'] ?? null, fn ($query, $search) => $query->where('title', 'like', "%{$search}%"))
+        ->when($filters['tags'] ?? null, fn ($query, $tags) => $query->withAnyTags($tags))
+        ->get(),
+    'filters' => $filters,
+    'tags' => Tag::suggestions(Post::class),
+    'details' => Tag::details(Post::class),
+]);
+```
+
+```vue
+<script setup>
+import { router } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
+import TagFilter from '@/vendor/tags/components/TagFilter.vue';
+import { tagIcons } from '@/vendor/tags/tagIcons.js';
+
+const props = defineProps(['posts', 'filters', 'tags', 'details']);
+
+const selected = ref(props.filters.tags ?? []);
+
+watch(selected, () => {
+    router.get('/posts', { tags: selected.value }, { preserveState: true, replace: true });
+});
+</script>
+
+<template>
+    <TagFilter v-model="selected" :tags="tags" :details="details" :icons="tagIcons" />
+</template>
+```
+
+`withAnyTags()` finds records with at least one of the checked tags. For records with all of them, use `withAllTags()`. Only call them when tags are checked, as the `when()` above does, since `withAnyTags([])` finds nothing.
+
+The component doesn't filter anything itself, so it works with whatever search you already have. In a regular form, set `name` and the checked tags submit as `tags[]`:
+
+```vue
+<TagFilter v-model="selected" name="tags" :tags="tags" />
+```
+
+The dropdown lines up with the button's right edge, to stay on screen after a search bar. If the button is on the left of the page, set `align="left"`. Set `label` to change the button's text. Without `details` and `icons`, tags show as plain gray chips.
+
 #### Tag colors
 
-Users can click a tag in `TagInput` to pick its color. Pass the colors by tag name with `v-model:colors`:
+Users can click a tag in `TagInputSimple` to pick its color. Pass the colors by tag name with `v-model:colors`:
 
 ```js
 const form = useForm({
@@ -189,23 +265,23 @@ const form = useForm({
 ```
 
 ```vue
-<TagInput v-model="form.tags" v-model:colors="form.colors" />
+<TagInputSimple v-model="form.tags" v-model:colors="form.colors" />
 ```
 
 Then save them after the tags:
 
 ```php
 use Illuminate\Validation\Rule;
-use spawaskar\Tags\Facades\TagManager;
-use spawaskar\Tags\Models\Tag;
+use spawaskar\Tags\Facades\Tag;
+use spawaskar\Tags\Models\Tag as TagModel;
 
 $request->validate([
     'colors' => 'array',
-    'colors.*' => ['nullable', Rule::in(Tag::COLORS)],
+    'colors.*' => ['nullable', Rule::in(TagModel::COLORS)],
 ]);
 
 $post->syncTags($request->input('tags', []));
-TagManager::setColors($request->input('colors', []));
+Tag::setColors($request->input('colors', []));
 ```
 
 In a regular form submit, set `colors-name` to render hidden inputs for the colors, like `name` does for the tags.
@@ -214,10 +290,10 @@ The palette's Tailwind classes are in the published `tagColors.js`. You can rest
 
 #### Advanced mode
 
-In advanced mode, import `TagInput` from the `advanced` folder instead of `simple`. It's used the same way, but shows the page's model's tags in a dropdown under the input with their colors and icons, makes new tags with a popup, and lets users pick any color with a color picker instead of the palette:
+In advanced mode, use `TagInputAdvanced` from the `advanced` folder instead of `TagInputSimple`. It's used the same way, but shows the page's model's tags in a dropdown under the input with their colors and icons, makes new tags with a popup, and lets users pick any color with a color picker instead of the palette:
 
 ```js
-import TagInput from '@/vendor/tags/components/advanced/TagInput.vue';
+import TagInputAdvanced from '@/vendor/tags/components/advanced/TagInputAdvanced.vue';
 ```
 
 The color picker is built on [Reka UI](https://reka-ui.com) and the icons come from [Lucide](https://lucide.dev), both of which Laravel's Vue starter kit already includes. If your app doesn't have them, install them first:
@@ -229,6 +305,28 @@ npm install reka-ui @lucide/vue
 Icons come from your app's installed `@lucide/vue`, so the icons users can pick are the ones that version has. To get Lucide's newest icons, update it with `npm install @lucide/vue@latest`.
 
 The picker is written in TypeScript, which the starter kit also supports. Apps in simple mode don't import anything from `advanced`, so they don't need these.
+
+The advanced components get their colors from your Tailwind theme, using these names: `background`, `foreground`, `primary`, `primary-foreground`, `popover`, `popover-foreground`, `muted`, `muted-foreground`, `accent`, `accent-foreground`, `destructive`, `input`, and `ring`. Laravel's Vue starter kit already defines them. If your app doesn't define all of them, import the package's default colors in your CSS file. This needs Tailwind 4:
+
+```css
+/* resources/css/app.css */
+@import 'tailwindcss';
+@import '../js/vendor/tags/tags.css';
+```
+
+Your theme's values win over the defaults, so you can set just the ones you want to change, or point them at your own colors:
+
+```css
+@theme {
+    --color-primary: var(--color-brand);
+}
+```
+
+The default colors include dark mode, which follows your app's `dark:` variant. By default, that's the visitor's system setting, so if your app is light-only, turn the variant off or tie it to a class, or the components and tag colors will go dark on your light pages:
+
+```css
+@custom-variant dark (&:where(.dark, .dark *));
+```
 
 In advanced mode, every tag belongs to one model, in `$tag->model_type` (for example `App\Models\Post`), and is only used on that model. Tag names are unique per model, so posts and videos can each have their own `pottery` tag, with its own color, icon, and description. `attachTags()` and `syncTags()` find or create the model's own tags, and creating a tag without a model throws an `InvalidArgumentException`.
 
@@ -256,7 +354,7 @@ $request->validate([
 
 #### Creating tags
 
-In advanced mode, typing in `TagInput` only adds the page's model's tags. New tags are made with the **New tag** button, which opens a popup for the tag's name, description, color, and icon. If a user types a name that isn't one of the model's tags yet, `TagInput` offers to open the popup for it. Nothing is saved until the form is.
+In advanced mode, typing in `TagInputAdvanced` only adds the page's model's tags. New tags are made with the **New tag** button, which opens a popup for the tag's name, description, color, and icon. If a user types a name that isn't one of the model's tags yet, `TagInputAdvanced` offers to open the popup for it. Nothing is saved until the form is.
 
 New tags are always for the page's model. The popup shows the model, but doesn't let users change it. List your models in the config, so the popup (and the tag manager page) can name them:
 
@@ -265,20 +363,20 @@ New tags are always for the page's model. The popup shows the model, but doesn't
 'models' => [App\Models\Post::class, App\Models\Video::class],
 ```
 
-Pass the page's model to `TagManager::suggestions()` and `TagManager::details()`, so users only see that model's tags, with their saved colors and icons as soon as they're picked:
+Pass the page's model to `Tag::suggestions()` and `Tag::details()`, so users only see that model's tags, with their saved colors and icons as soon as they're picked:
 
 ```php
 return Inertia::render('Posts/Edit', [
     'post' => $post->load('tags'),
-    'suggestions' => TagManager::suggestions(Post::class),
-    'details' => TagManager::details(Post::class),
-    'models' => TagManager::models(),
+    'suggestions' => Tag::suggestions(Post::class),
+    'details' => Tag::details(Post::class),
+    'models' => Tag::models(),
     'model' => $post->getMorphClass(),
-    'icons' => TagManager::icons(),
+    'icons' => Tag::icons(),
 ]);
 ```
 
-Without a model, `TagManager::suggestions()` returns every tag, grouped by its model.
+Without a model, `Tag::suggestions()` returns every tag, grouped by its model.
 
 ```js
 const form = useForm({
@@ -290,7 +388,7 @@ const form = useForm({
 ```
 
 ```vue
-<TagInput
+<TagInputAdvanced
     v-model="form.tags"
     v-model:colors="form.colors"
     v-model:icons="form.icons"
@@ -307,21 +405,21 @@ Then save the tags first, so new ones exist, and their details after. Pass the m
 
 ```php
 $post->syncTags($request->input('tags', []));
-TagManager::setColors($request->input('colors', []), Post::class);
-TagManager::setIcons($request->input('icons', []), Post::class);
-TagManager::setDescriptions($request->input('descriptions', []), Post::class);
+Tag::setColors($request->input('colors', []), Post::class);
+Tag::setIcons($request->input('icons', []), Post::class);
+Tag::setDescriptions($request->input('descriptions', []), Post::class);
 ```
 
-Clicking a tag in `TagInput` also lets users change its description. Descriptions can be up to 255 characters (`Tag::MAX_DESCRIPTION_LENGTH`), and a blank description removes it. In a regular form submit, set `descriptions-name` to render hidden inputs, like `name` does for the tags.
+Clicking a tag in `TagInputAdvanced` also lets users change its description. Descriptions can be up to 255 characters (`Tag::MAX_DESCRIPTION_LENGTH`), and a blank description removes it. In a regular form submit, set `descriptions-name` to render hidden inputs, like `name` does for the tags.
 
 #### Tag icons
 
-In advanced mode, users can also give each tag an icon from [Lucide](https://lucide.dev/icons). Clicking a tag in the advanced `TagInput` shows an icon button under the color picker, which opens a popup of every icon with a search. The New tag popup has the same button. Pass the icons users can pick from the controller:
+In advanced mode, users can also give each tag an icon from [Lucide](https://lucide.dev/icons). Clicking a tag in `TagInputAdvanced` shows an icon button under the color picker, which opens a popup of every icon with a search. The New tag popup has the same button. Pass the icons users can pick from the controller:
 
 ```php
 return Inertia::render('Posts/Edit', [
     'post' => $post->load('tags'),
-    'icons' => TagManager::icons(),
+    'icons' => Tag::icons(),
 ]);
 ```
 
@@ -336,7 +434,7 @@ const form = useForm({
 ```
 
 ```vue
-<TagInput v-model="form.tags" v-model:colors="form.colors" v-model:icons="form.icons" :available-icons="icons" />
+<TagInputAdvanced v-model="form.tags" v-model:colors="form.colors" v-model:icons="form.icons" :available-icons="icons" />
 ```
 
 Then validate and save them after the tags. A `null` icon removes the tag's icon:
@@ -347,7 +445,7 @@ $request->validate([
     'icons.*' => ['nullable', 'string', fn ($attribute, $value, $fail) => Tag::isValidIcon($value) || $fail('Not a tag icon.')],
 ]);
 
-TagManager::setIcons($request->input('icons', []), Post::class);
+Tag::setIcons($request->input('icons', []), Post::class);
 ```
 
 In a regular form submit, set `icons-name` to render hidden inputs for the icons.
@@ -435,7 +533,7 @@ If your app has teams, each team can have its own tags. Two teams can each have 
 
 Names are then unique per team (and per model, in advanced mode). The column isn't linked to your teams table, since the package doesn't know its name. To link it, add `->constrained()` to the `team_id` column in your published migration.
 
-A new tag gets the team of the record it's first attached to, from the record's `team_id` attribute. If your records keep their team in another attribute, set `team_column`1:
+A new tag gets the team of the record it's first attached to, from the record's `team_id` attribute. If your records keep their team in another attribute, set `team_column`:
 
 ```php
 'team_column' => 'organization_id',
@@ -450,13 +548,13 @@ public function tagTeamId(): ?int
 }
 ```
 
-Pass the team to `TagManager::suggestions()`, `TagManager::details()`, and the setters, so users only see and change their own team's tags:
+Pass the team to `Tag::suggestions()`, `Tag::details()`, and the setters, so users only see and change their own team's tags:
 
 ```php
-'suggestions' => TagManager::suggestions(Post::class, $team->id),
-'details' => TagManager::details(Post::class, $team->id),
+'suggestions' => Tag::suggestions(Post::class, $team->id),
+'details' => Tag::details(Post::class, $team->id),
 
-TagManager::setColors($request->input('colors', []), Post::class, $team->id);
+Tag::setColors($request->input('colors', []), Post::class, $team->id);
 ```
 
 Without a team, these use every team's tags, so `setColors()` could change another team's tag with the same name.
@@ -471,6 +569,33 @@ The tag manager page only shows, creates, and deletes the logged-in user's curre
 ```
 
 A user without a current team can't open the page.
+
+### Demo data
+
+To try tags with some data, list your models in `tags.models`, choose the tags in `demo_tags`, then run the demo seeder:
+
+```php
+// config/tags.php
+'demo_tags' => [
+    'urgent' => ['color' => 'red', 'icon' => 'flag'],
+],
+```
+
+```bash
+php artisan db:seed --class="spawaskar\Tags\Database\Seeders\TagsDemoSeeder"
+```
+
+It attaches one or two tags to each of the first 10 records of each model. It doesn't create records, so your models need the `HasTags` trait and some records first. In simple mode without teams, it creates the tags even if there's nothing to attach them to.
+
+Icons are only added in advanced mode. A tag that already has a color or icon keeps it.
+
+With teams on, records without a team are skipped. To tag one team's records, call it from your own seeder:
+
+```php
+$this->callWith(TagsDemoSeeder::class, ['teamId' => $team->id]);
+```
+
+Running it again doesn't add anything new. It doesn't run when `APP_ENV` is `production`, but it does run in any other environment, so don't run it against a staging database with real data.
 
 
 ## Changelog

@@ -6,9 +6,13 @@ namespace spawaskar\Tags\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 
@@ -235,6 +239,261 @@ class Tag extends Model
     public static function normalizeName(string $name): string
     {
         return mb_strtolower(trim($name));
+    }
+
+    /**
+     * The tag model class, set by the tags.model config option.
+     *
+     * @return class-string<Tag>
+     */
+    public static function modelClass(): string
+    {
+        /** @var class-string<Tag> $model */
+        $model = config('tags.model', self::class);
+
+        return $model;
+    }
+
+    /**
+     * Tags that aren't on anything: no record has them attached, e.g. new tags never used yet.
+     *
+     * @return Collection<int, Tag>
+     */
+    public static function unused(): Collection
+    {
+        return static::modelClass()::query()
+            ->whereNotExists(static::usages(...))
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * Tags attached to at least one record of the given class, e.g. Post::class.
+     *
+     * @param  class-string<Model>  $type
+     * @return Collection<int, Tag>
+     */
+    public static function usedOn(string $type): Collection
+    {
+        // Respects the app's morph map, if it has one.
+        $morphClass = (new $type)->getMorphClass();
+
+        return static::modelClass()::query()
+            ->whereExists(fn (QueryBuilder $query) => static::usages($query)->where('taggables.taggable_type', $morphClass))
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * The classes of the models that have tags, e.g. ['App\Models\Post'].
+     *
+     * @return list<string>
+     */
+    public static function types(): array
+    {
+        return array_values(DB::table('taggables')
+            ->distinct()
+            ->orderBy('taggable_type')
+            ->pluck('taggable_type')
+            ->map(fn (string $type): string => Relation::getMorphedModel($type) ?? $type)
+            ->all());
+    }
+
+    /**
+     * Tag names for TagInputSimple's or TagInputAdvanced's suggestions. In simple mode, every
+     * tag's name, shown as buttons.
+     * In advanced mode, pass the page's model, e.g. Post::class, for that model's tags, most-used
+     * first, so TagInputAdvanced can show the most-used ones before the user types. Without a model,
+     * every tag, grouped by its model. With teams on, pass the team, for only that team's tags.
+     *
+     * @param  class-string<Model>|null  $type
+     * @return list<string>|array<string, list<string>>
+     */
+    public static function suggestions(?string $type = null, int|string|null $team = null): array
+    {
+        if (config('tags.mode') !== 'advanced') {
+            return static::names($team);
+        }
+
+        // Without the model_type column, fall back to where tags are attached.
+        if (! static::modelClass()::recordsModelType()) {
+            return $type === null
+                ? static::namesByType()
+                : array_values(static::usedOn($type)->pluck('name')->all());
+        }
+
+        if ($type === null) {
+            return static::namesByModelType($team);
+        }
+
+        $table = static::modelClass()::query()->getModel()->getTable();
+
+        return array_values(static::modelClass()::query()
+            ->forModel($type)
+            ->forTeam($team)
+            ->orderByDesc(DB::table('taggables')->selectRaw('count(*)')->whereColumn('taggables.tag_id', "{$table}.id"))
+            ->orderBy('name')
+            ->pluck('name')
+            ->all());
+    }
+
+    /**
+     * Every tag's name, or with teams on, a team's tag names.
+     *
+     * @return list<string>
+     */
+    public static function names(int|string|null $team = null): array
+    {
+        return array_values(static::modelClass()::query()->forTeam($team)->orderBy('name')->pluck('name')->all());
+    }
+
+    /**
+     * Tags' color, icon, and description, by name. Pass it to TagInputAdvanced's details,
+     * so existing tags show their color and icon as soon as they're picked. In advanced mode,
+     * pass the page's model, e.g. Post::class, since other models can have tags with the same names.
+     * With teams on, pass the team too, since other teams can as well.
+     *
+     * @param  class-string<Model>|null  $type
+     * @return array<string, array{color: string|null, icon: string|null, description: string|null}>
+     */
+    public static function details(?string $type = null, int|string|null $team = null): array
+    {
+        $details = [];
+
+        foreach (static::modelClass()::query()->forModel($type)->forTeam($team)->orderBy('name')->get() as $tag) {
+            $details[$tag->name] = [
+                'color' => $tag->color,
+                'icon' => $tag->icon,
+                'description' => $tag->description,
+            ];
+        }
+
+        return $details;
+    }
+
+    /**
+     * Every tag's name, or with teams on, a team's tag names, grouped by the model it belongs to.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function namesByModelType(int|string|null $team = null): array
+    {
+        $groups = [];
+
+        $tags = static::modelClass()::query()->forTeam($team)->whereNotNull('model_type')->orderBy('model_type')->orderBy('name')->get(['name', 'model_type']);
+
+        foreach ($tags as $tag) {
+            $groups[class_basename(Relation::getMorphedModel((string) $tag->model_type) ?? (string) $tag->model_type)][] = $tag->name;
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Every tag in use, grouped by the type of model it's attached to.
+     * Pass it to TagInputAdvanced's suggestions to show a heading for each model.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function namesByType(): array
+    {
+        $groups = [];
+
+        $rows = static::modelClass()::query()
+            ->join('taggables', 'taggables.tag_id', '=', 'tags.id')
+            ->select(['tags.name', 'taggables.taggable_type'])
+            ->distinct()
+            ->orderBy('taggables.taggable_type')
+            ->orderBy('tags.name')
+            ->get();
+
+        foreach ($rows as $row) {
+            $type = (string) $row->getAttribute('taggable_type');
+
+            $groups[class_basename(Relation::getMorphedModel($type) ?? $type)][] = $row->name;
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Set tag colors by name, e.g. ['pottery' => 'red']. A null color resets the tag to the
+     * default. Names that aren't tags yet are skipped. In advanced mode, pass the model whose
+     * tags these are, e.g. Post::class, and with teams on, the team.
+     *
+     * @param  array<string, string|null>  $colors
+     * @param  class-string<Model>|null  $type
+     */
+    public static function setColors(array $colors, ?string $type = null, int|string|null $team = null): void
+    {
+        foreach ($colors as $name => $color) {
+            static::findByName((string) $name, $type, $team)?->update(['color' => $color]);
+        }
+    }
+
+    /**
+     * Set tag icons by name, e.g. ['file' => 'star']. A null icon removes the tag's icon.
+     * Advanced mode only, so pass the model whose tags these are, e.g. Post::class, and with
+     * teams on, the team.
+     *
+     * @param  array<string, string|null>  $icons
+     * @param  class-string<Model>|null  $type
+     */
+    public static function setIcons(array $icons, ?string $type = null, int|string|null $team = null): void
+    {
+        foreach ($icons as $name => $icon) {
+            static::findByName((string) $name, $type, $team)?->update(['icon' => $icon]);
+        }
+    }
+
+    /**
+     * Set tag descriptions by name, e.g. ['pottery' => 'Ceramic fragments']. A blank or null
+     * description removes the tag's description. In advanced mode, pass the model whose tags
+     * these are, e.g. Post::class, and with teams on, the team.
+     *
+     * @param  array<string, string|null>  $descriptions
+     * @param  class-string<Model>|null  $type
+     */
+    public static function setDescriptions(array $descriptions, ?string $type = null, int|string|null $team = null): void
+    {
+        foreach ($descriptions as $name => $description) {
+            $description = trim((string) $description);
+
+            static::findByName((string) $name, $type, $team)?->update(['description' => $description === '' ? null : $description]);
+        }
+    }
+
+    /**
+     * The models users can choose from when creating a tag in advanced mode, from the
+     * tags.models config option. Pass it to TagInputAdvanced's models.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    public static function models(): array
+    {
+        /** @var list<class-string<Model>> $classes */
+        $classes = config('tags.models', []);
+
+        return array_map(fn (string $class): array => [
+            'value' => (new $class)->getMorphClass(),
+            'label' => class_basename($class),
+        ], $classes);
+    }
+
+    /**
+     * A tag by name, among the given model's tags in advanced mode, and the given team's with teams on.
+     */
+    protected static function findByName(string $name, ?string $type, int|string|null $team = null): ?Tag
+    {
+        return static::modelClass()::query()->forModel($type)->forTeam($team)->where('name', static::normalizeName($name))->first();
+    }
+
+    /**
+     * Limit a subquery to the pivot rows for the tag in the outer query.
+     */
+    protected static function usages(QueryBuilder $query): QueryBuilder
+    {
+        return $query->from('taggables')->whereColumn('taggables.tag_id', 'tags.id');
     }
 
     /**

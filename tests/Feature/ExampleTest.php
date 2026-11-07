@@ -2,15 +2,27 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Artisan;
+use spawaskar\Tags\Facades\Tag as TagFacade;
 use spawaskar\Tags\Models\Tag;
-use spawaskar\Tags\TagManager;
+use spawaskar\Tags\Tests\Fixtures\CustomTag;
 
-it('resolves the singleton', function () {
-    expect(app(TagManager::class))->toBeInstanceOf(TagManager::class);
+it('resolves the tag facade to the tag model', function () {
+    expect(TagFacade::getFacadeRoot())->toBeInstanceOf(Tag::class);
 });
 
-it('returns the same instance from the container', function () {
-    expect(app(TagManager::class))->toBe(app(TagManager::class));
+it('resolves the tag facade to the model set in the config', function () {
+    config(['tags.model' => CustomTag::class]);
+
+    expect(TagFacade::getFacadeRoot())->toBeInstanceOf(CustomTag::class)
+        ->and(TagFacade::modelClass())->toBe(CustomTag::class);
+});
+
+it('forwards tag facade calls to the tag model', function () {
+    Tag::findOrCreateByName('never-used');
+
+    expect(TagFacade::unused()->pluck('name')->all())->toBe(['never-used'])
+        ->and(TagFacade::names())->toBe(['never-used']);
 });
 
 it('merges the package config', function () {
@@ -26,7 +38,5 @@ it('loads the package views', function () {
 });
 
 it('registers the artisan command', function () {
-    $this->artisan('tags:placeholder')
-        ->expectsOutputToContain('Tags placeholder command executed.')
-        ->assertSuccessful();
+    expect(Artisan::all())->toHaveKey('tags:install');
 });
