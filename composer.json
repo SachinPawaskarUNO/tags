@@ -18,7 +18,10 @@
     ],
     "require": {
         "php": "^8.3",
-        "illuminate/support": "^12.0||^13.0"
+        "illuminate/console": "^12.0||^13.0",
+        "illuminate/database": "^12.0||^13.0",
+        "illuminate/support": "^12.0||^13.0",
+        "laravel/prompts": "^0.3.0"
     },
     "require-dev": {
         "inertiajs/inertia-laravel": "^3.5",
@@ -76,7 +79,7 @@
             "vendor/bin/pest --type-coverage --min=100"
         ],
         "test:unit": [
-            "vendor/bin/pest --parallel"
+            "vendor/bin/pest"
         ],
         "test": [
             "@analyse",
@@ -94,7 +97,7 @@
                 "spawaskar\\Tags\\TagsServiceProvider"
             ],
             "aliases": {
-                "TagManager": "spawaskar\\Tags\\Facades\\TagManager"
+                "Tag": "spawaskar\\Tags\\Facades\\Tag"
             }
         }
     },

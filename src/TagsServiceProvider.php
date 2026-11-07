@@ -6,6 +6,7 @@ namespace spawaskar\Tags;
 
 use Illuminate\Support\ServiceProvider;
 use spawaskar\Tags\Console\Commands\TagsCommand;
+use spawaskar\Tags\Models\Tag;
 
 class TagsServiceProvider extends ServiceProvider
 {
@@ -16,7 +17,8 @@ class TagsServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/tags.php', 'tags');
 
-        $this->app->singleton(TagManager::class);
+        // Behind the Tag facade: the tag model set by the tags.model config option.
+        $this->app->bind('tags.tag', fn (): Tag => app(Tag::modelClass()));
     }
 
     /**

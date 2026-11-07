@@ -1,0 +1,19 @@
+{
+  "devDependencies": {
+    "@inertiajs/vue3": "^3.11.0",
+    "@lucide/vue": "^1.67.0",
+    "@tailwindcss/vite": "^4.3.4",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "laravel-vite-plugin": "^3.2.0",
+    "reka-ui": "^2.11.0",
+    "tailwindcss": "^4.3.4",
+    "vite": "^8.3.5",
+    "vue": "^3.5.44"
+  },
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  }
+}

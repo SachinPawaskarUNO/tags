@@ -45,6 +45,21 @@ return [
     'models' => [],
 
     /*
+     * The tags the demo seeder adds to existing records of the models above, by name, with their
+     * colors and, in advanced mode, icons. It doesn't run in production. See the README's demo
+     * data section.
+     */
+    'demo_tags' => [
+        'urgent' => ['color' => 'red', 'icon' => 'flag'],
+        'reviewed' => ['color' => 'green', 'icon' => 'check'],
+        'archived' => ['color' => 'blue', 'icon' => 'archive'],
+        'pending' => ['color' => 'yellow', 'icon' => 'clock'],
+        'follow-up' => ['color' => 'orange', 'icon' => 'bell'],
+        'featured' => ['color' => 'purple', 'icon' => 'star'],
+        'draft' => ['color' => 'gray', 'icon' => 'pencil'],
+    ],
+
+    /*
      * The tag manager page, for listing, searching, creating, and deleting tags in advanced mode.
      * It's an Inertia page, so it needs inertiajs/inertia-laravel and the page component from
      * the README's tag manager section. The routes are only registered when it's enabled.

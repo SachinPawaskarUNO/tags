@@ -10,7 +10,7 @@ import TagColorPicker from './TagColorPicker.vue';
 import TagIconPicker from './TagIconPicker.vue';
 
 // A popup for creating a tag in advanced mode, with a name, description, color, icon, and model.
-// It doesn't save anything: Create emits the new tag, for TagInput to add to the form or
+// It doesn't save anything: Create emits the new tag, for TagInputAdvanced to add to the form or
 // TagManagerPage to save.
 
 const open = defineModel('open', { type: Boolean, default: false });
@@ -24,11 +24,11 @@ const props = defineProps({
     // Tag names that already exist, so they aren't created again: a list, or names by model
     // type, like { 'App\Models\Post': ['pottery'] }, to check the model the popup is set to.
     existing: { type: [Array, Object], default: () => [] },
-    // The models to choose from, from TagManager::models(). Without them, the model field is hidden.
+    // The models to choose from, from Tag::models(). Without them, the model field is hidden.
     models: { type: Array, default: () => [] },
-    // Show the model field but don't let it change, e.g. in TagInput, where new tags are for the page's model.
+    // Show the model field but don't let it change, e.g. in TagInputAdvanced, where new tags are for the page's model.
     lockModel: { type: Boolean, default: false },
-    // The icon names users can pick, from TagManager::icons().
+    // The icon names users can pick, from Tag::icons().
     availableIcons: { type: Array, default: null },
     maxLength: { type: Number, default: 32 },
     // Matches Tag::MAX_DESCRIPTION_LENGTH on the server.

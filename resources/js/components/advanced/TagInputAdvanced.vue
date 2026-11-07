@@ -1,5 +1,5 @@
 <script>
-// Gives each TagInput's fields their own ids, for <label for="...">.
+// Gives each TagInputAdvanced's fields their own ids, for <label for="...">.
 let nextId = 0;
 </script>
 
@@ -24,7 +24,7 @@ import TagColorPicker from './TagColorPicker.vue';
 import TagCreateDialog from './TagCreateDialog.vue';
 import TagIconPicker from './TagIconPicker.vue';
 
-// TagInput for advanced mode: the page's model's tags are in a dropdown under the input,
+// The tag input for advanced mode: the page's model's tags are in a dropdown under the input,
 // filtered by typing, and new tags are made with the New tag popup, which sets their
 // description, color, and icon. New tags are for the page's model. Needs the installs in the
 // README's advanced mode section.
@@ -33,19 +33,19 @@ import TagIconPicker from './TagIconPicker.vue';
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps({
-    // Tag names to suggest, e.g. TagManager::suggestions(Post::class) for the page's model's tags.
+    // Tag names to suggest, e.g. Tag::suggestions(Post::class) for the page's model's tags.
     // A list grouped by model shows a heading for each.
     // Typing only adds tags from this list.
     suggestions: { type: [Array, Object], default: () => [] },
     // The page's model's tags' saved color, icon, and description by name, from
-    // TagManager::details(Post::class). Picked tags show them right away.
+    // Tag::details(Post::class). Picked tags show them right away.
     details: { type: Object, default: () => ({}) },
-    // The models from TagManager::models(), for the New tag popup's model field.
+    // The models from Tag::models(), for the New tag popup's model field.
     models: { type: Array, default: () => [] },
     // The page's model type, from $post->getMorphClass(), e.g. App\Models\Post. New tags are
     // for this model, so the New tag popup shows it but doesn't let it change.
     model: { type: String, default: null },
-    // The icon names users can pick, from TagManager::icons(). Without it, every Lucide icon.
+    // The icon names users can pick, from Tag::icons(). Without it, every Lucide icon.
     availableIcons: { type: Array, default: null },
     // When set, render hidden inputs so the tags and their details submit with a regular form.
     name: { type: String, default: null },
@@ -54,7 +54,7 @@ const props = defineProps({
     descriptionsName: { type: String, default: null },
     placeholder: { type: String, default: 'Search tags...' },
     // How many tags the dropdown shows before the user types: the first ones in suggestions,
-    // which TagManager::suggestions() orders most-used first. Typing searches them all. 0 shows all.
+    // which Tag::suggestions() orders most-used first. Typing searches them all. 0 shows all.
     limit: { type: Number, default: 8 },
     // Keep in sync with the app's validation, e.g. 'tags.*' => 'max:32'.
     maxLength: { type: Number, default: 32 },
@@ -64,7 +64,7 @@ const props = defineProps({
 
 const tags = defineModel({ type: Array, default: () => [] });
 
-// Details by tag name. Save them with TagManager::setColors(), setIcons(), and
+// Details by tag name. Save them with Tag::setColors(), setIcons(), and
 // setDescriptions(), passing the page's model, after syncTags().
 const colors = defineModel('colors', { type: Object, default: () => ({}) });
 const icons = defineModel('icons', { type: Object, default: () => ({}) });

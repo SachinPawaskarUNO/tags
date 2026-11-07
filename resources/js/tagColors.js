@@ -2,7 +2,7 @@
 // use any hex color from the color picker. Chips use both helpers, so either kind shows right:
 // :class="chipClass(color)" :style="chipStyle(color)"
 
-// The palette, used by simple mode's TagInput for its swatches. Keep in sync with Tag::COLORS
+// The palette, used by TagInputSimple for its swatches. Keep in sync with Tag::COLORS
 // in src/Models/Tag.php. Class names are written out in full so Tailwind includes them in the build.
 export const tagColors = {
     gray: { chip: 'bg-muted text-muted-foreground', swatch: 'bg-gray-400' },

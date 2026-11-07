@@ -7,6 +7,10 @@ namespace spawaskar\Tags\Facades;
 use Illuminate\Support\Facades\Facade;
 
 /**
+ * Calls go to the tag model set by the tags.model config option. Constants like COLORS aren't
+ * passed through, so use them from spawaskar\Tags\Models\Tag.
+ *
+ * @method static class-string<\spawaskar\Tags\Models\Tag> modelClass()
  * @method static \Illuminate\Database\Eloquent\Collection<int, \spawaskar\Tags\Models\Tag> unused()
  * @method static \Illuminate\Database\Eloquent\Collection<int, \spawaskar\Tags\Models\Tag> usedOn(class-string<\Illuminate\Database\Eloquent\Model> $type)
  * @method static list<string> types()
@@ -20,13 +24,19 @@ use Illuminate\Support\Facades\Facade;
  * @method static void setIcons(array<string, string|null> $icons, class-string<\Illuminate\Database\Eloquent\Model>|null $type = null, int|string|null $team = null)
  * @method static void setDescriptions(array<string, string|null> $descriptions, class-string<\Illuminate\Database\Eloquent\Model>|null $type = null, int|string|null $team = null)
  * @method static list<array{value: string, label: string}> models()
+ * @method static \spawaskar\Tags\Models\Tag findOrCreateByName(string $name, \Illuminate\Database\Eloquent\Model|null $for = null)
  *
- * @see \spawaskar\Tags\TagManager
+ * @see \spawaskar\Tags\Models\Tag
  */
-class TagManager extends Facade
+class Tag extends Facade
 {
+    /**
+     * Resolve the model again on every call, so a changed tags.model config option is picked up.
+     */
+    protected static $cached = false;
+
     protected static function getFacadeAccessor(): string
     {
-        return \spawaskar\Tags\TagManager::class;
+        return 'tags.tag';
     }
 }

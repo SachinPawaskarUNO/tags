@@ -1,6 +1,5 @@
 <?php
 
-use spawaskar\Tags\Facades\TagManager;
 use spawaskar\Tags\Models\Tag;
 use spawaskar\Tags\Tests\Fixtures\TestModel;
 
@@ -151,7 +150,7 @@ it('suggests every tag name in simple mode', function () {
     Tag::findOrCreateByName('never-used');
 
     // Act
-    $suggestions = TagManager::suggestions();
+    $suggestions = Tag::suggestions();
 
     // Assert
     expect($suggestions)->toBe(['never-used', 'tag1', 'tag2']);
@@ -164,7 +163,7 @@ it('suggests tag names grouped by model in advanced mode', function () {
     Tag::findOrCreateByName('never-used');
 
     // Act
-    $suggestions = TagManager::suggestions();
+    $suggestions = Tag::suggestions();
 
     // Assert
     expect($suggestions)->toBe(['TestModel' => ['tag1', 'tag2']]);
@@ -198,14 +197,14 @@ it('keeps each model\'s tags separate in advanced mode, even with the same name'
 
     // Act
     $model->attachTags('pottery');
-    TagManager::setColors(['pottery' => 'red'], TestModel::class);
+    Tag::setColors(['pottery' => 'red'], TestModel::class);
 
     // Assert
     expect(Tag::where('name', 'pottery')->count())->toBe(2)
         ->and($model->tags()->first()->model_type)->toBe(TestModel::class)
         ->and($model->tags()->first()->color)->toBe('red')
         ->and($other->fresh()->color)->toBe('blue')
-        ->and(TagManager::details(TestModel::class)['pottery']['color'])->toBe('red');
+        ->and(Tag::details(TestModel::class)['pottery']['color'])->toBe('red');
 });
 
 it('suggests only the tags for a model in advanced mode', function () {
@@ -215,7 +214,7 @@ it('suggests only the tags for a model in advanced mode', function () {
     Tag::create(['name' => 'tag2', 'model_type' => 'App\Models\Other']);
 
     // Act
-    $suggestions = TagManager::suggestions(TestModel::class);
+    $suggestions = Tag::suggestions(TestModel::class);
 
     // Assert
     expect($suggestions)->toBe(['tag1']);
@@ -230,7 +229,7 @@ it('lists tags that are not attached to any model', function () {
     $model->detachTags('tag2');
 
     // Assert
-    expect(TagManager::unused()->pluck('name')->all())->toBe(['never-used', 'tag2']);
+    expect(Tag::unused()->pluck('name')->all())->toBe(['never-used', 'tag2']);
 });
 
 it('accepts any Lucide icon name by default in advanced mode', function () {
@@ -238,7 +237,7 @@ it('accepts any Lucide icon name by default in advanced mode', function () {
     useAdvancedMode();
 
     // Assert
-    expect(TagManager::icons())->toBeNull()
+    expect(Tag::icons())->toBeNull()
         ->and(Tag::isValidIcon('grid-2x2'))->toBeTrue()
         ->and(Tag::isValidIcon('Not an icon'))->toBeFalse();
 });
@@ -249,7 +248,7 @@ it('only accepts the icons listed in the config', function () {
     config(['tags.icons' => ['star', 'map-pin']]);
 
     // Assert
-    expect(TagManager::icons())->toBe(['star', 'map-pin'])
+    expect(Tag::icons())->toBe(['star', 'map-pin'])
         ->and(Tag::isValidIcon('star'))->toBeTrue()
         ->and(Tag::isValidIcon('heart'))->toBeFalse();
 });
